@@ -19,9 +19,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const corsOptions = {
-    origin: ['https://voice-to-speech-7q3p.vercel.app', 'http://localhost:5173'], // Allow localhost for local testing
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify the allowed methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Specify the allowed headers
+    origin: '*', // Cho phép mọi Vercel Domain truy cập (tránh lỗi ngẫu nhiên khi Vercel sinh link mới)
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 };
 app.use(cors(corsOptions));
 
