@@ -64,7 +64,8 @@ const SpeechToTextApp = () => {
         
             try {
                 toast.info("Uploading recording...");
-                const response = await axios.post('http://localhost:5000/upload', formData, {
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const response = await axios.post(`${API_URL}/upload`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
                 setTranscriptions(prev => [...prev, response.data]);
@@ -124,7 +125,8 @@ const SpeechToTextApp = () => {
 
         try {
             toast.info("Uploading file...");
-            const response = await axios.post('http://localhost:5000/upload', formData, {
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const response = await axios.post(`${API_URL}/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setTranscriptions(prev => [...prev, response.data]);
