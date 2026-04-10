@@ -1,0 +1,206 @@
+body {
+    margin: 0;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f4f6f8;
+    color: #263238;
+}
+
+.app-container {
+    width: 100vw;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #f4f6f8;
+    overflow-x: hidden;
+}
+
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 40px;
+    background-color: #ffffff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+}
+
+.app-header h1 {
+    font-size: 22px;
+    color: #00695c;
+    margin: 0;
+    font-weight: 700;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    padding: 5px 15px;
+    background-color: #e0f2f1;
+    border-radius: 50px;
+    transition: background-color 0.3s ease;
+}
+
+.profile-image {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: 12px;
+    background: white;
+    object-fit: cover;
+}
+
+.profile-name {
+    font-size: 15px;
+    color: #004d40;
+    font-weight: 600;
+}
+
+.recorder {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin: 30px auto;
+    padding: 30px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    width: 80%;
+    max-width: 900px;
+    border: 1px solid #eceff1;
+}
+
+.recorder h3 {
+    margin-top: 0;
+    color: #37474f;
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
+.upload-section {
+    border-right: 1px solid #eceff1;
+    padding-right: 40px;
+}
+
+.record-section {
+    padding-left: 40px;
+    text-align: center;
+}
+
+input[type="file"] {
+    background: #f8fafc;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px dashed #b0bec5;
+    width: 100%;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.record-button {
+    background-color: #d32f2f;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 50px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 10px rgba(211, 47, 47, 0.2);
+}
+
+.record-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(211, 47, 47, 0.3);
+}
+
+.transcription-list {
+    flex-grow: 1;
+    margin-top: 10px;
+    width: 80%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.transcription-list h2 {
+    font-size: 18px;
+    color: #455a64;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 10px;
+}
+
+.container-transcript {
+    list-style-type: none;
+    padding: 0;
+}
+
+.transcription-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border: 1px solid #eceff1;
+    border-radius: 10px;
+    background-color: #ffffff;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    transition: box-shadow 0.2s ease;
+}
+
+.transcription-item:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.transcription-item p {
+    margin: 0;
+    color: #546e7a;
+    line-height: 1.5;
+    font-size: 15px;
+}
+
+.delete-button {
+    background-color: #f5f5f5;
+    color: #78909c;
+    border: 1px solid #cfd8dc;
+    padding: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-left: 15px;
+}
+
+.delete-button:hover {
+    background-color: #ffebee;
+    color: #e53935;
+    border-color: #e53935;
+}
+
+.app-footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 13px;
+    color: #90a4ae;
+}
+
+@media (max-width: 768px) {
+    .recorder {
+        flex-direction: column;
+        padding: 20px;
+    }
+    .upload-section {
+        border-right: none;
+        border-bottom: 1px solid #eceff1;
+        padding-right: 0;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+    .record-section {
+        padding-left: 0;
+    }
+}

@@ -1,0 +1,238 @@
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const fs = require('fs');
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
+const supabase = require('./db/supabaseClient');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleAIFileManager } = require("@google/generative-ai/server");
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+
+const app = express();
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+const corsOptions = {
+    origin: ['https://voice-to-speech-7q3p.vercel.app', 'http://localhost:5173'], // Allow localhost for local testing
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify the allowed methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Specify the allowed headers
+};
+app.use(cors(corsOptions));
+
+// Middleware for token authentication
+const authenticateToken = (req, res, next) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.sendStatus(401);
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(401);
+        req.user = user;
+        next();
+    });
+};
+
+// Test API root endpoint
+app.get('/', (req, res) => {
+    res.status(200).json({ message: 'API is running and ready for testing!' });
+});
+
+// User registration endpoint
+app.post('/register', async (req, res) => {
+    try {
+        const { name, email, password, image } = req.body;
+        if (!name || !email || !password || !image) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        const { data: existingUser } = await supabase.from('users').select('*').eq('email', email).single();
+        if (existingUser) return res.status(400).json({ message: 'User already exists' });
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const { data: newUser, error: insertErr } = await supabase.from('users').insert([{
+            name, email, password: hashedPassword, image, role: 'user'
+        }]).select().single();
+
+        if (insertErr) throw insertErr;
+
+        const token = jwt.sign({ userId: newUser.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.status(201).json({ token, user: { id: newUser.id, name: newUser.name, email: newUser.email, image: newUser.image, role: newUser.role } });
+    } catch (error) {
+        console.error("Error registering user:", error.message);
+        res.status(500).json({ message: 'Error registering user', error: error.message });
+    }
+});
+
+// User login endpoint
+app.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const { data: user, error: fetchErr } = await supabase.from('users').select('*').eq('email', email).single();
+        if (!user || fetchErr) return res.status(401).json({ message: 'Invalid credentials' });
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+
+        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token, user: { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role } });
+    } catch (error) {
+        console.error("Error logging in user:", error.message);
+        res.status(500).json({ message: 'Error logging in user', error: error.message });
+    }
+});
+
+// Configure multer for file storage in /tmp
+const upload = multer({
+    dest: path.join('/tmp'), // Use the /tmp directory
+    limits: { fileSize: 200 * 1024 * 1024 } // Set limits to 200 MB
+});
+
+// Audio upload and transcription endpoint
+app.post('/upload', upload.single('audio'), async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(400).json({ message: "User ID is required." });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: "No file uploaded." });
+        }
+
+        const audioFilePath = req.file.path; // Now pointing to /tmp
+        const allowedMimeTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'audio/webm', 'video/webm'];
+        if (!allowedMimeTypes.includes(req.file.mimetype)) {
+            fs.unlinkSync(audioFilePath);
+            return res.status(400).json({ message: "Unsupported file type." });
+        }
+
+        const audioBuffer = fs.readFileSync(audioFilePath);
+        if (audioBuffer.length === 0) {
+            fs.unlinkSync(audioFilePath);
+            return res.status(400).json({ message: "Audio file is empty." });
+        }
+
+        console.log("Đang upload audio lên Gemini Servers...");
+        const uploadResponse = await fileManager.uploadFile(audioFilePath, {
+            mimeType: req.file.mimetype,
+            displayName: "Medical Audio",
+        });
+
+        const prompt = `Bạn là hệ thống AI thẩm định Y tế chuyên nghiệp. Quy trình xử lý của bạn:
+1. Lắng nghe và trích xuất (Transcription) toàn bộ nội dung hội thoại Tiếng Việt trong file âm thanh.
+2. Tóm tắt nội dung chính của cuộc trao đổi (Summary).
+3. Rút ra 3 Insight quan trọng nhất có thể học hỏi hoặc cải thiện (Insights).
+4. Chấm điểm nhân viên y tế theo 5 tiêu chí (Rõ ràng, Chuyên nghiệp, Thấu cảm, Xử lý vấn đề, Hiệu quả) trên thang 10 điểm.
+
+Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sau:
+
+🎯 **BẢN DỊCH HỘI THOẠI (TRANSCRIPTION):**
+(Trích xuất toàn bộ câu chữ ở đây...)
+
+📝 **TÓM TẮT (SUMMARY):**
+(Tóm tắt nội dung...)
+
+💡 **3 INSIGHT QUAN TRỌNG:**
+1. ...
+2. ...
+3. ...
+
+⭐ **ĐÁNH GIÁ & CHẤM ĐIỂM (SCORING):**
+- Sự rõ ràng (Clarity): X/10 - Lời bình: ...
+- Tính chuyên nghiệp (Professionalism): Y/10 - Lời bình: ...
+- Sự thấu cảm (Empathy): Z/10 - Lời bình: ...
+- Giải quyết vấn đề (Problem Solving): N/10 - Lời bình: ...
+- Đạt hiệu quả (Efficiency): M/10 - Lời bình: ...
+`;
+
+        const modelName = "gemini-3.1-pro-preview";
+        console.log(`Đang chờ ${modelName} phân tích và phân rã các lớp dữ liệu PRD...`);
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent([
+            {
+                fileData: {
+                    mimeType: uploadResponse.file.mimeType,
+                    fileUri: uploadResponse.file.uri
+                }
+            },
+            { text: prompt }
+        ]);
+
+        const transcriptionText = result.response.text();
+        console.log("=== Kết quả AI Return ===", transcriptionText.substring(0, 50) + "...");
+
+        // Xoá file trên cache của hệ thống Gemini giải phóng bộ nhớ
+        try { await fileManager.deleteFile(uploadResponse.file.name); } catch (e) { }
+
+        if (!transcriptionText || transcriptionText.trim() === '') {
+            return res.status(400).json({ message: "Phân tích Audio thông qua Gemini bị rỗng." });
+        }
+
+        const audioUrl = "file_not_hosted_by_openai_yet"; // Placeholder vì OpenAI ko tự lưu file
+
+        // Save transcription details to the database (Supabase)
+        const { data: transcriptionData, error: dbError } = await supabase.from('transcriptions').insert([{
+            audioURL: audioUrl,
+            transcription: transcriptionText,
+            status: 'completed',
+            user_id: userId
+        }]).select().single();
+
+        if (dbError) throw dbError;
+
+        res.status(200).json({ message: "Transcription completed and saved successfully.", transcription: transcriptionData.transcription, _id: transcriptionData.id });
+    } catch (error) {
+        console.error("Error processing audio:", error.message || error.response.data);
+        res.status(500).json({ message: "Error processing audio" });
+    } finally {
+        if (req.file) fs.unlinkSync(req.file.path); // Clean up the uploaded file
+    }
+});
+
+// Get all transcriptions for a user
+app.post('/getall/:id', async (req, res) => {
+    const userId = req.params.id;
+    if (!userId) return res.status(400).json({ message: "User ID is required." });
+
+    try {
+        const { data: user, error: userErr } = await supabase.from('users').select('*').eq('id', userId).single();
+        if (!user || userErr) return res.status(404).json({ message: "User not found." });
+
+        const { data: transcriptions, error: transErr } = await supabase.from('transcriptions').select('*').eq('user_id', userId);
+
+        // Cấu trúc lại kết quả để frontend cũ đọc được id -> _id
+        const mappedTranscriptions = transcriptions ? transcriptions.map(t => ({ ...t, _id: t.id })) : [];
+
+        res.json({ user: { ...user, _id: user.id }, transcriptions: mappedTranscriptions });
+    } catch (error) {
+        console.error("Error fetching user data:", error.message);
+        res.status(500).json({ message: "Internal server error." });
+    }
+});
+
+// DELETE endpoint to delete a transcription by ID
+app.delete('/delete/:id', async (req, res) => {
+    const { id } = req.params;
+    if (!id) {
+        return res.status(400).send({ message: "Transcription ID is required" });
+    }
+
+    try {
+        const { data: transcription, error } = await supabase.from('transcriptions').delete().eq('id', id).select().single();
+        if (!transcription || error) {
+            return res.status(404).send({ message: "Transcription not found or error deleting" });
+        }
+        res.send({ message: "Transcription deleted successfully" });
+    } catch (error) {
+        res.status(500).send({ message: "Error deleting transcription", error });
+    }
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
