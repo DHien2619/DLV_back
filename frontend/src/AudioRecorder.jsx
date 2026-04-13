@@ -130,6 +130,9 @@ const AudioRecorder = () => {
 
         setChatSessions(prev => {
             const exists = prev.find(s => s.id === id);
+            const finalLabel = exists ? exists.label : label;
+            const session = { id, label: finalLabel, messages: msgs };
+
             const updated = exists
                 ? prev.map(s => s.id === id ? session : s)
                 : [session, ...prev].slice(0, 20);
