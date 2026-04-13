@@ -1,100 +1,269 @@
-/* Auth Styles shared across Login and Register */
-body {
-    margin: 0;
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-    background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
-    color: #333;
-}
+/* CSS for the split-pane Login & Register UI */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .auth-wrapper {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
+    /* Soft purple abstract gradient inspired by the image */
+    background: radial-gradient(circle at top left, #a5b4fc, #c084fc);
+    background-size: cover;
+    padding: 20px;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
 }
 
 .auth-container {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0, 105, 92, 0.15);
+    display: flex;
+    background: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
     width: 100%;
-    max-width: 420px;
-    padding: 40px;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    max-width: 900px;
+    min-height: 550px;
 }
 
-.auth-header h2 {
-    color: #00695c;
-    margin: 0;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-}
-
-.auth-header p {
-    color: #00897b;
-    margin-top: 5px;
-    margin-bottom: 30px;
-    font-size: 14px;
-}
-
-.auth-form {
+/* Left Pane */
+.auth-left {
+    flex: 1.1; /* slightly wider if you want, or just flex: 1 */
+    background: url('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2500&auto=format&fit=crop') center/cover;
+    position: relative;
+    padding: 50px 40px;
+    color: #fff;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    justify-content: space-between;
 }
 
-.auth-form input {
-    width: 100%;
-    padding: 14px 16px;
-    border: 1px solid #cfd8dc;
-    border-radius: 8px;
-    font-size: 15px;
-    background-color: #f8fafc;
-    box-sizing: border-box;
-    transition: all 0.2s ease;
+/* A dark blue/purple overlay to make text readable */
+.auth-left::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(145deg, rgba(14, 25, 60, 0.75) 0%, rgba(30, 58, 138, 0.85) 100%);
+    backdrop-filter: blur(4px); /* soft blur effect matching the mountain */
+    z-index: 1;
 }
 
-.auth-form input:focus {
-    border-color: #00897b;
-    background-color: #ffffff;
-    box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
-    outline: none;
+.auth-left > * {
+    position: relative;
+    z-index: 2;
 }
 
-.auth-button {
-    background: #00796b;
-    color: white;
-    font-weight: 600;
-    font-size: 16px;
-    padding: 15px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 10px;
+.auth-logo {
+    display: flex;
+    align-items: center;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.5px;
 }
 
-.auth-button:hover {
-    background: #004d40;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 77, 64, 0.2);
+.logo-icon {
+    width: 22px; 
+    height: 22px;
+    background: #fff;
+    border-radius: 50%;
+    margin-right: 12px;
+    position: relative;
 }
 
-.auth-footer p {
-    margin-top: 25px;
-    color: #607d8b;
+/* Little dot inside logo if you want */
+.logo-icon::after {
+    content: '';
+    position: absolute;
+    width: 6px; height: 6px;
+    background: #1e3a8a;
+    border-radius: 50%;
+    top: 5px; right: -8px;
+}
+
+.auth-left-text h1 {
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    letter-spacing: -1px;
+}
+
+.auth-left-text p {
     font-size: 14px;
+    color: #e2e8f0;
+    line-height: 1.6;
+    margin-bottom: 30px;
+    font-weight: 400;
 }
 
-.auth-footer a {
-    color: #00796b;
+.view-more-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: 0.3s;
+    backdrop-filter: blur(5px);
+}
+
+.view-more-btn:hover {
+    background: #fff;
+    color: #1e3a8a;
+}
+
+/* Right Pane - The Form */
+.auth-right {
+    flex: 1;
+    padding: 50px 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: #fff;
+}
+
+.input-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #334155;
+    background: #f8fafc;
+    box-sizing: border-box;
+    outline: none;
+    transition: 0.2s;
+    font-weight: 500;
+}
+
+.input-group input:focus {
+    border-color: #3b82f6;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input-group input::placeholder {
+    color: #cbd5e1;
+}
+
+.auth-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.remember-me {
+    font-size: 12px;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.remember-me input {
+    cursor: pointer;
+    accent-color: #3b82f6;
+}
+
+.forgot-password {
+    font-size: 12px;
+    color: #94a3b8; /* It's subtle in the design */
     text-decoration: none;
-    font-weight: 600;
+    font-weight: 500;
+    transition: 0.2s;
 }
 
-.auth-footer a:hover {
-    text-decoration: underline;
+.forgot-password:hover {
+    color: #3b82f6;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    color: #1e3a8a;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+    transition: 0.3s;
+}
+
+.login-btn:hover {
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    background: #f8fafc;
+    transform: translateY(-1px);
+}
+
+.auth-switch {
+    margin-top: 35px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.auth-switch p {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0;
+    font-weight: 500;
+}
+
+.signup-btn {
+    width: 100%;
+    padding: 14px;
+    /* Beautiful blue gradient like the screenshot */
+    background: linear-gradient(to right, #38bdf8, #3b82f6);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+    transition: 0.3s;
+}
+
+.signup-btn:hover {
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+    transform: translateY(-1px);
+}
+
+/* Responsiveness for smaller screens (App view) */
+@media (max-width: 768px) {
+    .auth-container {
+        flex-direction: column;
+        max-width: 400px;
+        min-height: auto;
+    }
+    .auth-left {
+        padding: 40px 30px;
+        min-height: 250px;
+    }
+    .auth-right {
+        padding: 40px 30px;
+    }
+    .auth-left-text h1 {
+        font-size: 36px;
+    }
 }
