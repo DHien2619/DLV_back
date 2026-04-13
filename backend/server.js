@@ -154,7 +154,7 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
         const modelName = "gemini-flash-latest"; // Dùng Flash để tăng tốc xử lý transcription
         console.log(`Đang chờ ${modelName} phân tích và phân rã các lớp dữ liệu PRD...`);
         const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent([
+        const resultStream = await model.generateContentStream([
             {
                 fileData: {
                     mimeType: uploadResponse.file.mimeType,
@@ -164,15 +164,20 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
             { text: prompt }
         ]);
 
-        const transcriptionText = result.response.text();
-        console.log("=== Kết quả AI Return ===", transcriptionText.substring(0, 50) + "...");
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        let transcriptionText = '';
+
+        for await (const chunk of resultStream.stream) {
+            const chunkText = chunk.text();
+            transcriptionText += chunkText;
+            res.write(chunkText); // Stream ra màn hình ngay lập tức để giữ mạng sống
+        }
+        res.end();
+
+        console.log("=== Kế hoạch AI Xong ===", transcriptionText.substring(0, 50) + "...");
 
         // Xoá file trên cache của hệ thống Gemini giải phóng bộ nhớ
         try { await fileManager.deleteFile(uploadResponse.file.name); } catch (e) { }
-
-        if (!transcriptionText || transcriptionText.trim() === '') {
-            return res.status(400).json({ message: "Phân tích Audio thông qua Gemini bị rỗng." });
-        }
 
         const audioUrl = "file_not_hosted_by_openai_yet"; // Placeholder vì OpenAI ko tự lưu file
 
@@ -184,11 +189,14 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
             user_id: userId
         }]).select().single();
 
-        if (dbError) throw dbError;
-
-        res.status(200).json({ message: "Transcription completed and saved successfully.", transcription: transcriptionData.transcription, _id: transcriptionData.id });
+        if (dbError) console.error("Lỗi lưu DB mồ côi:", dbError);
     } catch (error) {
-        res.status(500).json({ message: "Error processing audio", error: error.message || String(error) });
+        if (!res.headersSent) {
+            res.status(500).json({ message: "Error processing audio", error: error.message || String(error) });
+        } else {
+            res.end();
+            console.error("Stream bị đứt giữa chừng:", error.message);
+        }
     } finally {
         if (req.file && fs.existsSync(req.file.path)) {
             try {

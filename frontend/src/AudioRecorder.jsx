@@ -219,7 +219,7 @@ const AudioRecorder = () => {
                 formData.append('audio', file);
                 formData.append('userId', userId);
                 return axios.post(`${API_URL}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000 })
-                    .then(res => ({ name: file.name, transcription: res.data.transcription || '' }))
+                    .then(res => ({ name: file.name, transcription: res.data.transcription || (typeof res.data === 'string' ? res.data : '') }))
                     .catch((err) => {
                         const errMsg = err.response?.data?.message || err.message || 'Unknown error';
                         return { name: file.name, transcription: `[KHÔNG THỂ DỊCH: ${errMsg}]` };
