@@ -151,7 +151,7 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
 - Đạt hiệu quả (Efficiency): M/10 - Lời bình: ...
 `;
 
-        const modelName = "gemini-1.5-flash"; // Dùng Flash để tăng tốc xử lý transcription
+        const modelName = "gemini-flash-latest"; // Dùng Flash để tăng tốc xử lý transcription
         console.log(`Đang chờ ${modelName} phân tích và phân rã các lớp dữ liệu PRD...`);
         const model = genAI.getGenerativeModel({ model: modelName });
         const result = await model.generateContent([
@@ -188,8 +188,7 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
 
         res.status(200).json({ message: "Transcription completed and saved successfully.", transcription: transcriptionData.transcription, _id: transcriptionData.id });
     } catch (error) {
-        console.error("Error processing audio:", error.message || error.response.data);
-        res.status(500).json({ message: "Error processing audio" });
+        res.status(500).json({ message: "Error processing audio", error: error.message || String(error) });
     } finally {
         if (req.file) fs.unlinkSync(req.file.path); // Clean up the uploaded file
     }
