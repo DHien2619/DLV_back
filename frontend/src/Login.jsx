@@ -77,7 +77,7 @@ const Login = () => {
                         </div>
                         
                         <button type="submit" className="login-btn" disabled={isLoading}>
-                            {isLoading ? 'Đang gọi Server (Chờ xíu nhé...)' : 'Login'}
+                            Login
                         </button>
                     </form>
                     

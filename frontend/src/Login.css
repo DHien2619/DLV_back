@@ -207,10 +207,19 @@
     transition: 0.3s;
 }
 
-.login-btn:hover {
+.login-btn:hover:not(:disabled) {
     box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
     background: #f8fafc;
     transform: translateY(-1px);
+}
+
+.login-btn:disabled, .signup-btn:disabled {
+    opacity: 0.6;
+    background: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
 }
 
 .auth-switch {

@@ -84,7 +84,7 @@ const Register = () => {
                         </div>
                         
                         <button type="submit" className="login-btn" disabled={isLoading}>
-                            {isLoading ? 'Đang gọi Server (Chờ xíu nhé...)' : 'Sign up'}
+                            Sign up
                         </button>
                     </form>
                     
