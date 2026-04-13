@@ -150,6 +150,13 @@ const AudioRecorder = () => {
         if (!text && pendingFiles.length === 0) return;
 
         let sid = activeId === NEW_CHAT_ID ? 'chat_' + Date.now() : activeId;
+
+        // Bắt đầu một session mới và chuyển thẳng focus sang ID này, tránh lỗi người dùng gõ Enter rồi bị kẹt ở Welcome Screen
+        if (activeId === NEW_CHAT_ID) {
+            setActiveId(sid);
+            setSessionData(prev => ({ ...prev, [sid]: { ...(prev[NEW_CHAT_ID] || emptySession()) }, [NEW_CHAT_ID]: emptySession() }));
+        }
+
         const liveCurrent = sessionDataRef.current[sid] || emptySession();
 
         if ((liveCurrent.loadingCount || 0) > 0 && pendingFiles.length > 0) {
@@ -167,10 +174,6 @@ const AudioRecorder = () => {
     // ── Send text only
     const handleSendTextOnly = async (text, forcedSid = null) => {
         let sid = forcedSid || (activeId === NEW_CHAT_ID ? 'chat_' + Date.now() : activeId);
-        if (activeId === NEW_CHAT_ID && !forcedSid) {
-            setActiveId(sid);
-            setSessionData(prev => ({ ...prev, [sid]: { ...(prev[NEW_CHAT_ID] || emptySession()) }, [NEW_CHAT_ID]: emptySession() }));
-        }
 
         const liveCurrent = sessionDataRef.current[sid] || emptySession();
         if ((liveCurrent.loadingCount || 0) > 0) {
@@ -218,10 +221,6 @@ const AudioRecorder = () => {
         setPendingFiles([]);
 
         let sid = forcedSid || (activeId === NEW_CHAT_ID ? 'chat_' + Date.now() : activeId);
-        if (activeId === NEW_CHAT_ID && !forcedSid) {
-            setActiveId(sid);
-            setSessionData(prev => ({ ...prev, [sid]: { ...(prev[NEW_CHAT_ID] || emptySession()) }, [NEW_CHAT_ID]: emptySession() }));
-        }
 
         const fileNames = files.map(f => f.name).join(', ');
         const bubbleText = userPrompt
