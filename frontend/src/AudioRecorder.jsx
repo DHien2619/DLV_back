@@ -331,6 +331,10 @@ const AudioRecorder = () => {
         .filter(([id, d]) => id !== activeId && d.isLoading).length;
 
     // ────────────────────────────────────────────────────────
+    if (!token) {
+        return <div style={{ minHeight: '100vh', background: 'var(--bg-color, #111827)' }} />;
+    }
+
     return (
         <div className="dashboard-container">
             <ToastContainer position="top-right" autoClose={3000} theme="dark" />
