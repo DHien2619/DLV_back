@@ -106,10 +106,10 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
         }
 
         const audioFilePath = req.file.path; // Now pointing to /tmp
-        const allowedMimeTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'audio/webm', 'video/webm'];
-        if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        
+        if (!req.file.mimetype.startsWith('audio/') && !req.file.mimetype.startsWith('video/')) {
             fs.unlinkSync(audioFilePath);
-            return res.status(400).json({ message: "Unsupported file type." });
+            return res.status(400).json({ message: "Unsupported file type. Only Audio and Video files are allowed." });
         }
 
         const audioBuffer = fs.readFileSync(audioFilePath);
