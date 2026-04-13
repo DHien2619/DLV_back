@@ -119,7 +119,8 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
         }
 
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.write(' '); // Ping mạng Render ngay lập tức vì quá trình đẩy file lên Google có thể tốn hơn 100s!
+        res.flushHeaders(); // Ép hệ thống xả bộ nhớ đệm HTTP Headers gửi thẳng qua kẽ hở của Render Proxy
+        res.write('🔄 Đang phân tích âm thanh, xin vui lòng đợi trong giây lát...\n\n'); // Nội dung vừa làm mồi câu Bypass 100s, vừa thông báo cho User
 
         console.log("Đang upload audio lên Gemini Servers...");
         const uploadResponse = await fileManager.uploadFile(audioFilePath, {
