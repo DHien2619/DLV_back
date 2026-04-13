@@ -51,12 +51,47 @@ const AudioRecorder = () => {
     const [tempUser, setTempUser] = useState({ name: '', image: '' });
 
     const [inputText, setInputText] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
     const [pendingFiles, setPendingFiles] = useState([]); // danh sách file đang staged
 
     const fileInputRef = useRef(null);
     const avatarInputRef = useRef(null);
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
+    
+    // ── Grouped Sessions ──────────────────────────────────────
+    const groupedChats = React.useMemo(() => {
+        const groups = { today: [], last7Days: [], older: [] };
+        const now = new Date();
+        const searchLower = searchQuery.toLowerCase();
+
+        chatSessions.forEach(session => {
+            if (searchQuery && !session.label.toLowerCase().includes(searchLower)) return;
+
+            let timestamp = 0;
+            if (session.id.startsWith('chat_')) {
+                timestamp = parseInt(session.id.split('_')[1], 10);
+            }
+
+            if (!timestamp) {
+                groups.older.push(session);
+                return;
+            }
+
+            const date = new Date(timestamp);
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0 && date.getDate() === now.getDate()) {
+                groups.today.push(session);
+            } else if (diffDays <= 7) {
+                groups.last7Days.push(session);
+            } else {
+                groups.older.push(session);
+            }
+        });
+        return groups;
+    }, [chatSessions, searchQuery]);
 
     const token = localStorage.getItem('token');
 
@@ -563,63 +598,88 @@ const AudioRecorder = () => {
                     <span>Cuộc trò chuyện mới</span>
                 </button>
 
-                        <div className="sidebar-section-label">Lịch sử</div>
+                        <div className="sidebar-search">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                            <span className="search-shortcut">⌘K</span>
+                        </div>
+
+                        <nav className="sidebar-nav-links">
+                            <a href="#" className="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Home</a>
+                            <a href="#" className="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg> Explore</a>
+                            <a href="#" className="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Library</a>
+                            <a href="#" className="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> History</a>
+                        </nav>
+
                         <div className="chat-history-list" onClick={() => setContextMenu(null)}>
                             {chatSessions.length === 0 ? (
                                 <div className="no-history">Chưa có lịch sử</div>
                             ) : (
-                                chatSessions.map((s, i) => {
-                                    const isActive = activeId === s.id;
-                                    const bgLoading = (sessionData[s.id]?.loadingCount || 0) > 0 && !isActive;
-                                    return (
-                                        <div key={s.id || i}
-                                            className={`history-item ${isActive ? 'active' : ''} ${renamingId === s.id ? 'renaming' : ''}`}
-                                            onClick={() => { 
-                                                if (renamingId !== s.id) loadSession(s); 
-                                                setMobileSidebarOpen(false); 
-                                            }}>
-                                            {renamingId === s.id ? (
-                                                <input
-                                                    className="rename-input"
-                                                    value={renameValue}
-                                                    autoFocus
-                                                    onChange={e => setRenameValue(e.target.value)}
-                                                    onKeyDown={e => {
-                                                        if (e.key === 'Enter') commitRename(s.id);
-                                                        if (e.key === 'Escape') setRenamingId(null);
-                                                    }}
-                                                    onBlur={() => commitRename(s.id)}
-                                                    onClick={e => e.stopPropagation()}
-                                                />
-                                            ) : (
-                                                <span className="history-label">{s.label}</span>
-                                            )}
-                                            {/* Loading spinner khi session đang chạy nền */}
-                                            {bgLoading && <span className="bg-loading-dot" title="Đang xử lý..." />}
-                                            <button
-                                                className="session-menu-btn"
-                                                onClick={e => {
-                                                    e.stopPropagation();
-                                                    setContextMenu(contextMenu?.id === s.id ? null : { id: s.id });
-                                                }}
-                                                title="Tùy chọn">
-                                                ···
-                                            </button>
-                                            {contextMenu?.id === s.id && (
-                                                <div className="session-dropdown" onClick={e => e.stopPropagation()}>
-                                                    <button onClick={() => startRename(s)}>
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                                        Đổi tên
-                                                    </button>
-                                                    <button className="danger" onClick={() => deleteSession(s.id)}>
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                                                        Xóa
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })
+                                <>
+                                    {['today', 'last7Days', 'older'].map(groupKey => {
+                                        const groupSessions = groupedChats[groupKey];
+                                        if (groupSessions.length === 0) return null;
+
+                                        const groupTitle = groupKey === 'today' ? 'Today' : groupKey === 'last7Days' ? '7 Days Ago' : 'Older';
+
+                                        return (
+                                            <div key={groupKey} className="history-group">
+                                                <div className="sidebar-section-label">{groupTitle}</div>
+                                                {groupSessions.map((s, i) => {
+                                                    const isActive = activeId === s.id;
+                                                    const bgLoading = (sessionData[s.id]?.loadingCount || 0) > 0 && !isActive;
+                                                    return (
+                                                        <div key={s.id || i}
+                                                            className={`history-item ${isActive ? 'active' : ''} ${renamingId === s.id ? 'renaming' : ''}`}
+                                                            onClick={() => { 
+                                                                if (renamingId !== s.id) loadSession(s); 
+                                                                setMobileSidebarOpen(false); 
+                                                            }}>
+                                                            {renamingId === s.id ? (
+                                                                <input
+                                                                    className="rename-input"
+                                                                    value={renameValue}
+                                                                    autoFocus
+                                                                    onChange={e => setRenameValue(e.target.value)}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter') commitRename(s.id);
+                                                                        if (e.key === 'Escape') setRenamingId(null);
+                                                                    }}
+                                                                    onBlur={() => commitRename(s.id)}
+                                                                    onClick={e => e.stopPropagation()}
+                                                                />
+                                                            ) : (
+                                                                <span className="history-label">{s.label}</span>
+                                                            )}
+                                                            {bgLoading && <span className="bg-loading-dot" title="Đang xử lý..." />}
+                                                            <button
+                                                                className="session-menu-btn"
+                                                                onClick={e => {
+                                                                    e.stopPropagation();
+                                                                    setContextMenu(contextMenu?.id === s.id ? null : { id: s.id });
+                                                                }}
+                                                                title="Tùy chọn">
+                                                                ···
+                                                            </button>
+                                                            {contextMenu?.id === s.id && (
+                                                                <div className="session-dropdown" onClick={e => e.stopPropagation()}>
+                                                                    <button onClick={() => startRename(s)}>
+                                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                                                        Đổi tên
+                                                                    </button>
+                                                                    <button className="danger" onClick={() => deleteSession(s.id)}>
+                                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                                                        Xóa
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })}
+                                </>
                             )}
                         </div>
 
@@ -697,7 +757,12 @@ const AudioRecorder = () => {
                     {messages.map((msg, i) => (
                         <div key={i} className={`message-row ${msg.role === 'user' ? 'user-row-msg' : 'ai-row-msg'}`}>
                             {msg.role === 'user' ? (
-                                <div className="msg-bubble-user">{renderAIText(msg.content)}</div>
+                                <div className="user-msg-container">
+                                    <div className="msg-bubble-user">{renderAIText(msg.content)}</div>
+                                    <div className="user-avatar-bubble">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                    </div>
+                                </div>
                             ) : (
                                 <div className="msg-ai-content">
                                     <div className="ai-avatar-icon">✨</div>
