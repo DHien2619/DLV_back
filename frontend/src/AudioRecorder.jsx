@@ -205,7 +205,10 @@ const AudioRecorder = () => {
                 formData.append('userId', userId);
                 return axios.post(`${API_URL}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 })
                     .then(res => ({ name: file.name, transcription: res.data.transcription || '' }))
-                    .catch(() => ({ name: file.name, transcription: '[Không thể phiên dịch file này]' }));
+                    .catch((err) => {
+                        const errMsg = err.response?.data?.message || err.message || 'Unknown error';
+                        return { name: file.name, transcription: `[KHÔNG THỂ DỊCH: ${errMsg}]` };
+                    });
             });
             const results = await Promise.all(uploadPromises);
 
