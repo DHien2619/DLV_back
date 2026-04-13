@@ -124,7 +124,7 @@ const AudioRecorder = () => {
 
     // ── Save / update session in localStorage sidebar
     const persistSession = (id, msgs) => {
-        if (msgs.length < 2) return;
+        if (msgs.length < 1) return;
         const firstUser = msgs.find(m => m.role === 'user');
         const raw = firstUser?.content || 'Cuộc trò chuyện';
         const label = '💬 ' + raw.slice(0, 28) + (raw.length > 28 ? '...' : '');
@@ -191,7 +191,9 @@ const AudioRecorder = () => {
         const userMsg = { role: 'user', content: text };
         setSessionData(prev => {
             const temp = prev[sid] || emptySession();
-            return { ...prev, [sid]: { ...temp, messages: [...temp.messages, userMsg], loadingCount: (temp.loadingCount || 0) + 1, loadingLabel: 'Đang suy nghĩ...' } };
+            const newMessages = [...temp.messages, userMsg];
+            persistSession(sid, newMessages);
+            return { ...prev, [sid]: { ...temp, messages: newMessages, loadingCount: (temp.loadingCount || 0) + 1, loadingLabel: 'Đang suy nghĩ...' } };
         });
         setInputText('');
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
@@ -229,7 +231,9 @@ const AudioRecorder = () => {
         const userMsg = { role: 'user', content: bubbleText, isFile: true };
         setSessionData(prev => {
             const temp = prev[sid] || emptySession();
-            return { ...prev, [sid]: { ...temp, messages: [...temp.messages, userMsg], loadingCount: (temp.loadingCount || 0) + 1, loadingLabel: `Đang tải ${files.length} file lên Gemini...` } };
+            const newMessages = [...temp.messages, userMsg];
+            persistSession(sid, newMessages);
+            return { ...prev, [sid]: { ...temp, messages: newMessages, loadingCount: (temp.loadingCount || 0) + 1, loadingLabel: `Đang tải ${files.length} file lên Gemini...` } };
         });
         setInputText('');
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
