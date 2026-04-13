@@ -244,7 +244,7 @@ app.post('/chat', async (req, res) => {
         if (!message) return res.status(400).json({ message: 'Message is required' });
 
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-pro-preview-03-25',
+            model: 'gemini-1.5-flash',
             systemInstruction: `Bạn là PharmaVoice AI — một trợ lý y tế thông minh chuyên nghiệp, thân thiện, và chính xác.
 Bạn hỗ trợ nhân viên và bác sĩ dược trong việc:
 - Phân tích nội dung ghi âm cuộc tư vấn với bệnh nhân (được cung cấp dưới dạng transcript).
