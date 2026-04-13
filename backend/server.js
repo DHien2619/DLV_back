@@ -165,6 +165,7 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
         ]);
 
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.write(' '); // Gửi ngay 1 khoảng trắng tàng hình để xác nhận kết nối, lừa NGINX Render tắt cơ chế tự huỷ sau 100s
         let transcriptionText = '';
 
         for await (const chunk of resultStream.stream) {
