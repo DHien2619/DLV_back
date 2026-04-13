@@ -325,9 +325,9 @@ const AudioRecorder = () => {
         reader.readAsDataURL(file);
     };
 
-    // ── Spinner badge: số session đang loading (trừ session hiện tại)
-    const backgroundLoadingCount = Object.entries(sessionData)
-        .filter(([id, d]) => id !== activeId && d.isLoading).length;
+    // ── Spinner badge: tổng số session đang loading (bao gồm cả hiện tại)
+    const backgroundLoadingCount = Object.values(sessionData)
+        .filter(d => d.isLoading).length;
 
     // ────────────────────────────────────────────────────────
     if (!token) {
@@ -594,7 +594,7 @@ const AudioRecorder = () => {
                     {backgroundLoadingCount > 0 && (
                         <div className="bg-loading-bar">
                             <span className="bg-loading-dot-spin" />
-                            {backgroundLoadingCount} cuộc đang xử lý nền
+                            {backgroundLoadingCount} tác vụ đang xử lý
                         </div>
                     )}
                 </div>
