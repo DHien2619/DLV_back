@@ -22,7 +22,7 @@ const renderAIText = (text) => {
 };
 
 // Helper tạo session rỗng
-const emptySession = () => ({ messages: [], loadingCount: 0, loadingLabel: 'Đang suy nghĩ...' });
+const emptySession = () => ({ messages: [], loadingCount: 0, loadingLabel: 'Đang suy nghĩ...', pendingQueue: [] });
 const NEW_CHAT_ID = '__new__';
 
 // ── Main Component ───────────────────────────────────────────
@@ -38,8 +38,10 @@ const AudioRecorder = () => {
     const [activeId, setActiveId] = useState(NEW_CHAT_ID);
 
     // ── Per-session live state (messages + loading) — keyed by session id
-    // sessionData[id] = { messages, isLoading, loadingLabel }
+    // sessionData[id] = { messages, isLoading, loadingLabel, pendingQueue }
     const [sessionData, setSessionData] = useState({ [NEW_CHAT_ID]: emptySession() });
+    const sessionDataRef = useRef(sessionData);
+    useEffect(() => { sessionDataRef.current = sessionData; }, [sessionData]);
 
     // ── Mobile Responsive Sidebar & Settings
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
@@ -147,21 +149,41 @@ const AudioRecorder = () => {
         const text = inputText.trim();
         if (!text && pendingFiles.length === 0) return;
 
+        let sid = activeId === NEW_CHAT_ID ? 'chat_' + Date.now() : activeId;
+        const liveCurrent = sessionDataRef.current[sid] || emptySession();
+
+        if ((liveCurrent.loadingCount || 0) > 0 && pendingFiles.length > 0) {
+            toast.error("Vui lòng đợi AI xử lý xong trước khi upload thêm file!");
+            return;
+        }
+
         if (pendingFiles.length > 0) {
-            await handleSendWithFiles(text);
+            await handleSendWithFiles(text, sid);
         } else {
-            await handleSendTextOnly(text);
+            await handleSendTextOnly(text, sid);
         }
     };
 
     // ── Send text only
-    const handleSendTextOnly = async (text) => {
-        let sid = activeId === NEW_CHAT_ID ? 'chat_' + Date.now() : activeId;
-        if (activeId === NEW_CHAT_ID) {
+    const handleSendTextOnly = async (text, forcedSid = null) => {
+        let sid = forcedSid || (activeId === NEW_CHAT_ID ? 'chat_' + Date.now() : activeId);
+        if (activeId === NEW_CHAT_ID && !forcedSid) {
             setActiveId(sid);
             setSessionData(prev => ({ ...prev, [sid]: { ...(prev[NEW_CHAT_ID] || emptySession()) }, [NEW_CHAT_ID]: emptySession() }));
         }
-        const history = (sessionData[sid]?.messages || messages)
+
+        const liveCurrent = sessionDataRef.current[sid] || emptySession();
+        if ((liveCurrent.loadingCount || 0) > 0) {
+            setSessionData(prev => {
+                const temp = prev[sid] || emptySession();
+                return { ...prev, [sid]: { ...temp, pendingQueue: [...(temp.pendingQueue || []), text] } };
+            });
+            setInputText('');
+            if (textareaRef.current) textareaRef.current.style.height = 'auto';
+            return;
+        }
+
+        const history = (sessionDataRef.current[sid]?.messages || messages)
             .filter(m => !m.isFile).map(m => ({ role: m.role, content: m.content }));
         const userMsg = { role: 'user', content: text };
         setSessionData(prev => {
@@ -185,16 +207,18 @@ const AudioRecorder = () => {
                 const temp = prev[sid] || emptySession();
                 return { ...prev, [sid]: { ...temp, messages: [...temp.messages, { role: 'assistant', content: `❌ Lỗi kết nối tới AI.${detail}` }], loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
             });
+        } finally {
+            checkAndProcessQueue(sid);
         }
     };
 
     // ── Send text + multiple staged files together
-    const handleSendWithFiles = async (userPrompt) => {
+    const handleSendWithFiles = async (userPrompt, forcedSid = null) => {
         const files = pendingFiles;
         setPendingFiles([]);
 
-        let sid = activeId === NEW_CHAT_ID ? 'chat_' + Date.now() : activeId;
-        if (activeId === NEW_CHAT_ID) {
+        let sid = forcedSid || (activeId === NEW_CHAT_ID ? 'chat_' + Date.now() : activeId);
+        if (activeId === NEW_CHAT_ID && !forcedSid) {
             setActiveId(sid);
             setSessionData(prev => ({ ...prev, [sid]: { ...(prev[NEW_CHAT_ID] || emptySession()) }, [NEW_CHAT_ID]: emptySession() }));
         }
@@ -254,7 +278,24 @@ const AudioRecorder = () => {
                 const temp = prev[sid] || emptySession();
                 return { ...prev, [sid]: { ...temp, messages: [...temp.messages, { role: 'assistant', content: msg }], loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
             });
+        } finally {
+            checkAndProcessQueue(sid);
         }
+    };
+
+    const checkAndProcessQueue = (sid) => {
+        setTimeout(() => {
+            const latestData = sessionDataRef.current[sid];
+            if (latestData && latestData.pendingQueue && latestData.pendingQueue.length > 0 && (latestData.loadingCount || 0) === 0) {
+                const nextText = latestData.pendingQueue[0];
+                const newQueue = latestData.pendingQueue.slice(1);
+                setSessionData(prev => ({
+                    ...prev,
+                    [sid]: { ...prev[sid], pendingQueue: newQueue }
+                }));
+                handleSendTextOnly(nextText, sid);
+            }
+        }, 150);
     };
 
     // ── File change: STAGE files (multi), don't upload yet
@@ -674,6 +715,14 @@ const AudioRecorder = () => {
                             </div>
                         </div>
                     )}
+
+                    {(current.pendingQueue || []).map((pmsg, pIdx) => (
+                        <div key={`pending-${pIdx}`} className="message-row user-row-msg">
+                            <div className="msg-bubble-user" style={{ opacity: 0.6, fontStyle: 'italic' }}>
+                                ⏳ Đang chờ: {pmsg}
+                            </div>
+                        </div>
+                    ))}
 
                     <div ref={messagesEndRef} />
                 </div>

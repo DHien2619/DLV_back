@@ -120,9 +120,17 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
 
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.flushHeaders(); // Ép hệ thống xả bộ nhớ đệm HTTP Headers gửi thẳng qua kẽ hở của Render Proxy
+        res.write(' '.repeat(4096)); // Độn ngay 4KB rác (khoảng trắng) để ép Cloudflare Buffer tràn cục bộ và buộc phải mở luồng Stream xuống Client ngay lập tức!
         res.write('🔄 Đang phân tích âm thanh, xin vui lòng đợi trong giây lát...\n\n'); // Nội dung vừa làm mồi câu Bypass 100s, vừa thông báo cho User
 
-        console.log("Đang upload audio lên Gemini Servers...");
+        // Bật Heartbeat ping '.' liên tục mỗi 5s để chống Cloudflare Idle Timeout 100s
+        const keepAliveInterval = setInterval(() => {
+            res.write(' . ');
+        }, 5000);
+        let heartBeatStopped = false;
+
+        try {
+            console.log("Đang upload audio lên Gemini Servers...");
         const uploadResponse = await fileManager.uploadFile(audioFilePath, {
             mimeType: req.file.mimetype,
             displayName: "Medical Audio",
@@ -171,6 +179,11 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
         let transcriptionText = '';
 
         for await (const chunk of resultStream.stream) {
+            if (!heartBeatStopped) {
+                clearInterval(keepAliveInterval);
+                heartBeatStopped = true;
+                res.write('\n\n'); 
+            }
             const chunkText = chunk.text();
             transcriptionText += chunkText;
             res.write(chunkText); // Stream ra màn hình ngay lập tức để giữ mạng sống
@@ -193,6 +206,9 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
         }]).select().single();
 
         if (dbError) console.error("Lỗi lưu DB mồ côi:", dbError);
+        } finally {
+            if (!heartBeatStopped) clearInterval(keepAliveInterval);
+        }
     } catch (error) {
         if (!res.headersSent) {
             res.status(500).json({ message: "Error processing audio", error: error.message || String(error) });
