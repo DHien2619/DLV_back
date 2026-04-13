@@ -253,14 +253,46 @@ Bạn hỗ trợ nhân viên và bác sĩ dược trong việc:
 Luôn trả lời bằng tiếng Việt trừ khi người dùng yêu cầu khác. Câu trả lời rõ ràng, có cấu trúc.`,
         });
 
-        // Convert history sang format Gemini yêu cầu
-        const geminiHistory = history.map(h => ({
-            role: h.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: h.content }]
-        }));
+        // Normalize history to strictly alternate user/model and start with user
+        const normalizedHistory = [];
+        let currentRole = null;
+        let currentText = [];
 
-        const chat = model.startChat({ history: geminiHistory });
-        const result = await chat.sendMessage(message);
+        for (const h of history) {
+            const role = h.role === 'assistant' ? 'model' : 'user';
+            const text = h.content;
+            if (!text) continue;
+
+            if (role === currentRole) {
+                currentText.push(text);
+            } else {
+                if (currentRole !== null) {
+                    // Skip leading 'model' messages
+                    if (!(normalizedHistory.length === 0 && currentRole === 'model')) {
+                        normalizedHistory.push({ role: currentRole, parts: [{ text: currentText.join('\n\n') }] });
+                    }
+                }
+                currentRole = role;
+                currentText = [text];
+            }
+        }
+        if (currentRole !== null) {
+            if (!(normalizedHistory.length === 0 && currentRole === 'model')) {
+                normalizedHistory.push({ role: currentRole, parts: [{ text: currentText.join('\n\n') }] });
+            }
+        }
+
+        // Must end with 'model' if we are about to send a 'user' message, 
+        // wait, the API allows sending 'user' message if history ends with 'model' or is empty.
+        // But if normalizedHistory ends with 'user', we must pop it or combine it with the new message!
+        let finalMessage = message;
+        if (normalizedHistory.length > 0 && normalizedHistory[normalizedHistory.length - 1].role === 'user') {
+            const popped = normalizedHistory.pop();
+            finalMessage = popped.parts[0].text + '\n\n' + message;
+        }
+
+        const chat = model.startChat({ history: normalizedHistory });
+        const result = await chat.sendMessage(finalMessage);
         const responseText = result.response.text();
 
         res.json({ reply: responseText });
