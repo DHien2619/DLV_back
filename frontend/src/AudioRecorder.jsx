@@ -22,7 +22,7 @@ const renderAIText = (text) => {
 };
 
 // Helper tạo session rỗng
-const emptySession = () => ({ messages: [], isLoading: false, loadingLabel: 'Đang suy nghĩ...' });
+const emptySession = () => ({ messages: [], loadingCount: 0, loadingLabel: 'Đang suy nghĩ...' });
 const NEW_CHAT_ID = '__new__';
 
 // ── Main Component ───────────────────────────────────────────
@@ -77,7 +77,8 @@ const AudioRecorder = () => {
 
     // Current session live data
     const current = sessionData[activeId] || emptySession();
-    const { messages, isLoading, loadingLabel } = current;
+    const { messages, loadingCount = 0, loadingLabel } = current;
+    const isLoading = loadingCount > 0;
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -141,7 +142,7 @@ const AudioRecorder = () => {
     // ── Send (text only OR text + staged files)
     const handleSendText = async () => {
         const text = inputText.trim();
-        if ((!text && pendingFiles.length === 0) || isLoading) return;
+        if (!text && pendingFiles.length === 0) return;
 
         if (pendingFiles.length > 0) {
             await handleSendWithFiles(text);
@@ -160,20 +161,27 @@ const AudioRecorder = () => {
         const history = (sessionData[sid]?.messages || messages)
             .filter(m => !m.isFile).map(m => ({ role: m.role, content: m.content }));
         const userMsg = { role: 'user', content: text };
-        setSessionData(prev => ({ ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: [...(prev[sid]?.messages || []), userMsg], isLoading: true, loadingLabel: 'Đang suy nghĩ...' } }));
+        setSessionData(prev => {
+            const temp = prev[sid] || emptySession();
+            return { ...prev, [sid]: { ...temp, messages: [...temp.messages, userMsg], loadingCount: (temp.loadingCount || 0) + 1, loadingLabel: 'Đang suy nghĩ...' } };
+        });
         setInputText('');
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
         try {
             const res = await axios.post(`${API_URL}/chat`, { message: text, history });
             const aiMsg = { role: 'assistant', content: res.data.reply };
             setSessionData(prev => {
-                const updated = [...(prev[sid]?.messages || []), aiMsg];
+                const temp = prev[sid] || emptySession();
+                const updated = [...temp.messages, aiMsg];
                 persistSession(sid, updated);
-                return { ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: updated, isLoading: false } };
+                return { ...prev, [sid]: { ...temp, messages: updated, loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
             });
         } catch (err) {
             const detail = err.response?.data?.error ? ` (${err.response.data.error})` : '';
-            setSessionData(prev => ({ ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: [...(prev[sid]?.messages || []), { role: 'assistant', content: `❌ Lỗi kết nối tới AI.${detail}` }], isLoading: false } }));
+            setSessionData(prev => {
+                const temp = prev[sid] || emptySession();
+                return { ...prev, [sid]: { ...temp, messages: [...temp.messages, { role: 'assistant', content: `❌ Lỗi kết nối tới AI.${detail}` }], loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
+            });
         }
     };
 
@@ -193,7 +201,10 @@ const AudioRecorder = () => {
             ? `📎 **${fileNames}**\n${userPrompt}`
             : `📎 **${fileNames}**`;
         const userMsg = { role: 'user', content: bubbleText, isFile: true };
-        setSessionData(prev => ({ ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: [...(prev[sid]?.messages || []), userMsg], isLoading: true, loadingLabel: `Đang tải ${files.length} file lên Gemini...` } }));
+        setSessionData(prev => {
+            const temp = prev[sid] || emptySession();
+            return { ...prev, [sid]: { ...temp, messages: [...temp.messages, userMsg], loadingCount: (temp.loadingCount || 0) + 1, loadingLabel: `Đang tải ${files.length} file lên Gemini...` } };
+        });
         setInputText('');
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
@@ -227,15 +238,19 @@ const AudioRecorder = () => {
             const chatRes = await axios.post(`${API_URL}/chat`, { message: prompt, history });
             const aiMsg = { role: 'assistant', content: chatRes.data.reply };
             setSessionData(prev => {
-                const updated = [...(prev[sid]?.messages || []), aiMsg];
+                const temp = prev[sid] || emptySession();
+                const updated = [...temp.messages, aiMsg];
                 persistSession(sid, updated);
-                return { ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: updated, isLoading: false } };
+                return { ...prev, [sid]: { ...temp, messages: updated, loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
             });
             toast.success(`✅ Đã phân tích ${files.length} file!`);
         } catch (err) {
             const detail = err.response?.data?.error ? ` (${err.response.data.error})` : '';
             const msg = err.code === 'ECONNABORTED' ? '⏳ Quá thời gian chờ. Thử lại!' : `❌ Lỗi: ${err.response?.data?.message || 'Không thể phân tích file.'}${detail}`;
-            setSessionData(prev => ({ ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: [...(prev[sid]?.messages || []), { role: 'assistant', content: msg }], isLoading: false } }));
+            setSessionData(prev => {
+                const temp = prev[sid] || emptySession();
+                return { ...prev, [sid]: { ...temp, messages: [...temp.messages, { role: 'assistant', content: msg }], loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
+            });
         }
     };
 
@@ -332,7 +347,7 @@ const AudioRecorder = () => {
 
     // ── Spinner badge: tổng số session đang loading (bao gồm cả hiện tại)
     const backgroundLoadingCount = Object.values(sessionData)
-        .filter(d => d.isLoading).length;
+        .filter(d => (d.loadingCount || 0) > 0).length;
 
     // ────────────────────────────────────────────────────────
     if (!token) {
@@ -508,7 +523,7 @@ const AudioRecorder = () => {
                             ) : (
                                 chatSessions.map((s, i) => {
                                     const isActive = activeId === s.id;
-                                    const bgLoading = sessionData[s.id]?.isLoading && !isActive;
+                                    const bgLoading = (sessionData[s.id]?.loadingCount || 0) > 0 && !isActive;
                                     return (
                                         <div key={s.id || i}
                                             className={`history-item ${isActive ? 'active' : ''} ${renamingId === s.id ? 'renaming' : ''}`}
@@ -688,9 +703,9 @@ const AudioRecorder = () => {
                             ))}
                         </div>
                     )}
-                    <div className="input-box">
-                        <button className="attach-btn" onClick={() => fileInputRef.current.click()}
-                            title="Upload file âm thanh" disabled={isLoading}>
+                    <div className="input-toolbar">
+                        <button className="pharma-btn-icon" onClick={() => fileInputRef.current?.click()}
+                            title="Upload file âm thanh">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                 <line x1="12" y1="4" x2="12" y2="20" />
                                 <line x1="4" y1="12" x2="20" y2="12" />
@@ -701,15 +716,14 @@ const AudioRecorder = () => {
                         <textarea
                             ref={textareaRef}
                             rows={1}
-                            placeholder={pendingFiles.length > 0 ? `Nhập yêu cầu cho ${pendingFiles.length} file, rồi bấm Gửi...` : 'Hỏi PharmaVoice AI bất cứ điều gì...'}
                             value={inputText}
                             onChange={handleTextareaChange}
                             onKeyDown={handleKeyDown}
-                            disabled={isLoading}
+                            placeholder="Hỏi PharmaVoice AI bất cứ điều gì..."
                         />
 
                         <button className="send-btn" onClick={handleSendText}
-                            disabled={(!inputText.trim() && pendingFiles.length === 0) || isLoading} title="Gửi (Enter)">
+                            disabled={(!inputText.trim() && pendingFiles.length === 0)} title="Gửi (Enter)">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="12" y1="19" x2="12" y2="5" />
                                 <polyline points="5 12 12 5 19 12" />
