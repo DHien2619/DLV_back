@@ -703,8 +703,8 @@ const AudioRecorder = () => {
                             ))}
                         </div>
                     )}
-                    <div className="input-toolbar">
-                        <button className="pharma-btn-icon" onClick={() => fileInputRef.current?.click()}
+                    <div className="input-box">
+                        <button className="attach-btn" onClick={() => fileInputRef.current?.click()}
                             title="Upload file âm thanh">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                 <line x1="12" y1="4" x2="12" y2="20" />
