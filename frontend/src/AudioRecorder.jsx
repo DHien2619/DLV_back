@@ -79,7 +79,7 @@ const AudioRecorder = () => {
 
     // ── Load saved sessions from localStorage + DB
     useEffect(() => {
-        const local = JSON.parse(localStorage.getItem('pharmaSessions') || '[]');
+        const local = JSON.parse(localStorage.getItem(`pharmaSessions_${userId || 'anonymous'}`) || '[]');
         setChatSessions(local);
 
         const fetchAudio = async () => {
@@ -127,7 +127,7 @@ const AudioRecorder = () => {
                 ? prev.map(s => s.id === id ? session : s)
                 : [session, ...prev].slice(0, 20);
             const localOnly = updated.filter(s => s.id.startsWith('chat_'));
-            localStorage.setItem('pharmaSessions', JSON.stringify(localOnly));
+            localStorage.setItem(`pharmaSessions_${userId || 'anonymous'}`, JSON.stringify(localOnly));
             return updated;
         });
     };
@@ -268,7 +268,7 @@ const AudioRecorder = () => {
         const newLabel = '💬 ' + renameValue.trim();
         setChatSessions(prev => {
             const updated = prev.map(s => s.id === id ? { ...s, label: newLabel } : s);
-            localStorage.setItem('pharmaSessions', JSON.stringify(updated.filter(s => s.id.startsWith('chat_'))));
+            localStorage.setItem(`pharmaSessions_${userId || 'anonymous'}`, JSON.stringify(updated.filter(s => s.id.startsWith('chat_'))));
             return updated;
         });
         setRenamingId(null);
@@ -279,7 +279,7 @@ const AudioRecorder = () => {
     const deleteSession = (id) => {
         setChatSessions(prev => {
             const updated = prev.filter(s => s.id !== id);
-            localStorage.setItem('pharmaSessions', JSON.stringify(updated.filter(s => s.id.startsWith('chat_'))));
+            localStorage.setItem(`pharmaSessions_${userId || 'anonymous'}`, JSON.stringify(updated.filter(s => s.id.startsWith('chat_'))));
             return updated;
         });
         setSessionData(prev => { const n = { ...prev }; delete n[id]; return n; });
