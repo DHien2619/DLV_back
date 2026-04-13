@@ -171,8 +171,9 @@ const AudioRecorder = () => {
                 persistSession(sid, updated);
                 return { ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: updated, isLoading: false } };
             });
-        } catch {
-            setSessionData(prev => ({ ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: [...(prev[sid]?.messages || []), { role: 'assistant', content: '❌ Lỗi kết nối tới AI.' }], isLoading: false } }));
+        } catch (err) {
+            const detail = err.response?.data?.error ? ` (${err.response.data.error})` : '';
+            setSessionData(prev => ({ ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: [...(prev[sid]?.messages || []), { role: 'assistant', content: `❌ Lỗi kết nối tới AI.${detail}` }], isLoading: false } }));
         }
     };
 
@@ -232,7 +233,8 @@ const AudioRecorder = () => {
             });
             toast.success(`✅ Đã phân tích ${files.length} file!`);
         } catch (err) {
-            const msg = err.code === 'ECONNABORTED' ? '⏳ Quá thời gian chờ. Thử lại!' : `❌ Lỗi: ${err.response?.data?.message || 'Không thể phân tích file.'}`;
+            const detail = err.response?.data?.error ? ` (${err.response.data.error})` : '';
+            const msg = err.code === 'ECONNABORTED' ? '⏳ Quá thời gian chờ. Thử lại!' : `❌ Lỗi: ${err.response?.data?.message || 'Không thể phân tích file.'}${detail}`;
             setSessionData(prev => ({ ...prev, [sid]: { ...(prev[sid] || emptySession()), messages: [...(prev[sid]?.messages || []), { role: 'assistant', content: msg }], isLoading: false } }));
         }
     };
