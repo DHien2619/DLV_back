@@ -58,6 +58,13 @@ const AudioRecorder = () => {
     const textareaRef = useRef(null);
 
     const token = localStorage.getItem('token');
+
+    useEffect(() => {
+        if (!token) {
+            window.location.replace('/login');
+        }
+    }, [token]);
+
     const user = JSON.parse(localStorage.getItem('user')) || {};
     const userId = user.id || null;
     const [username, setUsername] = useState(user.name || 'User');
