@@ -215,7 +215,7 @@ const AudioRecorder = () => {
                 const formData = new FormData();
                 formData.append('audio', file);
                 formData.append('userId', userId);
-                return axios.post(`${API_URL}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 })
+                return axios.post(`${API_URL}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000 })
                     .then(res => ({ name: file.name, transcription: res.data.transcription || '' }))
                     .catch((err) => {
                         const errMsg = err.response?.data?.message || err.message || 'Unknown error';
