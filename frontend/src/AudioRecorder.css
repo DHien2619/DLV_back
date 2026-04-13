@@ -473,7 +473,7 @@ body:not(.light-theme) .tooltip-btn:hover {
     display: flex;
     gap: 14px;
     align-items: flex-start;
-    width: 100%;
+    width: fit-content;
 }
 
 .ai-avatar-icon {
@@ -1535,10 +1535,19 @@ body.light-theme .msg-bubble-user {
 }
 
 body.light-theme .ai-row-msg .msg-ai-content {
-    background: #f8f9fc;
+    background: transparent;
     padding: 16px 20px;
     border-radius: 4px 16px 16px 16px;
     max-width: 85%;
+}
+
+body.light-theme .ai-msg-container .loading-label {
+    font-style: italic;
+    color: #666;
+}
+
+body.light-theme .ai-msg-container .msg-ai-content {
+    background: #f8f9fc;
 }
 
 body.light-theme .ai-avatar-icon {
