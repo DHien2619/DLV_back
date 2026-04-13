@@ -151,7 +151,7 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
 - Đạt hiệu quả (Efficiency): M/10 - Lời bình: ...
 `;
 
-        const modelName = "gemini-3.1-pro-preview";
+        const modelName = "gemini-1.5-pro";
         console.log(`Đang chờ ${modelName} phân tích và phân rã các lớp dữ liệu PRD...`);
         const model = genAI.getGenerativeModel({ model: modelName });
         const result = await model.generateContent([
@@ -244,7 +244,7 @@ app.post('/chat', async (req, res) => {
         if (!message) return res.status(400).json({ message: 'Message is required' });
 
         const model = genAI.getGenerativeModel({
-            model: 'gemini-3.1-pro-preview',
+            model: 'gemini-1.5-pro',
             systemInstruction: `Bạn là PharmaVoice AI — một trợ lý y tế thông minh chuyên nghiệp, thân thiện, và chính xác.
 Bạn hỗ trợ nhân viên và bác sĩ dược trong việc:
 - Phân tích nội dung ghi âm cuộc tư vấn với bệnh nhân (được cung cấp dưới dạng transcript).
