@@ -108,13 +108,13 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
         const audioFilePath = req.file.path; // Now pointing to /tmp
         
         if (!req.file.mimetype.startsWith('audio/') && !req.file.mimetype.startsWith('video/')) {
-            fs.unlinkSync(audioFilePath);
+            if (fs.existsSync(audioFilePath)) fs.unlinkSync(audioFilePath);
             return res.status(400).json({ message: "Unsupported file type. Only Audio and Video files are allowed." });
         }
 
-        const audioBuffer = fs.readFileSync(audioFilePath);
-        if (audioBuffer.length === 0) {
-            fs.unlinkSync(audioFilePath);
+        const stats = fs.statSync(audioFilePath);
+        if (stats.size === 0) {
+            if (fs.existsSync(audioFilePath)) fs.unlinkSync(audioFilePath);
             return res.status(400).json({ message: "Audio file is empty." });
         }
 
@@ -190,7 +190,13 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
     } catch (error) {
         res.status(500).json({ message: "Error processing audio", error: error.message || String(error) });
     } finally {
-        if (req.file) fs.unlinkSync(req.file.path); // Clean up the uploaded file
+        if (req.file && fs.existsSync(req.file.path)) {
+            try {
+                fs.unlinkSync(req.file.path); // Clean up the uploaded file
+            } catch (e) {
+                console.error("Cleanup error:", e);
+            }
+        }
     }
 });
 
