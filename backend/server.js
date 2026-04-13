@@ -118,6 +118,9 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
             return res.status(400).json({ message: "Audio file is empty." });
         }
 
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.write(' '); // Ping mạng Render ngay lập tức vì quá trình đẩy file lên Google có thể tốn hơn 100s!
+
         console.log("Đang upload audio lên Gemini Servers...");
         const uploadResponse = await fileManager.uploadFile(audioFilePath, {
             mimeType: req.file.mimetype,
@@ -164,8 +167,6 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
             { text: prompt }
         ]);
 
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.write(' '); // Gửi ngay 1 khoảng trắng tàng hình để xác nhận kết nối, lừa NGINX Render tắt cơ chế tự huỷ sau 100s
         let transcriptionText = '';
 
         for await (const chunk of resultStream.stream) {
@@ -195,6 +196,7 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
         if (!res.headersSent) {
             res.status(500).json({ message: "Error processing audio", error: error.message || String(error) });
         } else {
+            res.write(`\n[KHÔNG THỂ DỊCH (STREAM LỖI): ${error.message || String(error)}]\n`);
             res.end();
             console.error("Stream bị đứt giữa chừng:", error.message);
         }
