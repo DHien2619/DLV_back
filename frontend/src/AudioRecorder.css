@@ -1525,29 +1525,37 @@ body.light-theme .left-sidebar {
 }
 
 body.light-theme .msg-bubble-user {
-    background: #5a4bff;
-    color: #ffffff;
-    border-radius: 16px 4px 16px 16px;
-    padding: 16px 20px;
+    background: #f0f0f0;
+    color: #333;
+    border-radius: 20px;
+    padding: 12px 18px;
     font-size: 15px;
     line-height: 1.5;
-    box-shadow: 0 4px 12px rgba(90, 75, 255, 0.15);
+    box-shadow: none;
+    max-width: 80%;
+}
+
+body.light-theme .msg-ai-content {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    max-width: 100%;
 }
 
 body.light-theme .ai-row-msg .msg-ai-content {
     background: transparent;
-    padding: 16px 20px;
-    border-radius: 4px 16px 16px 16px;
-    max-width: 85%;
+    padding: 0;
+    border-radius: 0;
+    max-width: 95%;
 }
 
-body.light-theme .ai-msg-container .loading-label {
+body.light-theme .loading-label {
     font-style: italic;
     color: #666;
-}
-
-body.light-theme .ai-msg-container .msg-ai-content {
-    background: #f8f9fc;
+    background: #f4f4f5;
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: inline-block;
 }
 
 body.light-theme .ai-avatar-icon {
