@@ -234,5 +234,41 @@ app.delete('/delete/:id', async (req, res) => {
     }
 });
 
+// ============================================================
+// CHAT endpoint — hội thoại đa lượt với Gemini (có nhớ context)
+// Body: { message: string, history: [{role:'user'|'model', content:string}] }
+// ============================================================
+app.post('/chat', async (req, res) => {
+    try {
+        const { message, history = [] } = req.body;
+        if (!message) return res.status(400).json({ message: 'Message is required' });
+
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.0-flash',
+            systemInstruction: `Bạn là PharmaVoice AI — một trợ lý y tế thông minh chuyên nghiệp, thân thiện, và chính xác.
+Bạn hỗ trợ nhân viên và bác sĩ dược trong việc:
+- Phân tích nội dung ghi âm cuộc tư vấn với bệnh nhân (được cung cấp dưới dạng transcript).
+- Trả lời các câu hỏi y tế, dược học bằng tiếng Việt.
+- Đưa ra nhận xét chuyên sâu, chuẩn đoán, và gợi ý cải thiện khi được yêu cầu.
+Luôn trả lời bằng tiếng Việt trừ khi người dùng yêu cầu khác. Câu trả lời rõ ràng, có cấu trúc.`,
+        });
+
+        // Convert history sang format Gemini yêu cầu
+        const geminiHistory = history.map(h => ({
+            role: h.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: h.content }]
+        }));
+
+        const chat = model.startChat({ history: geminiHistory });
+        const result = await chat.sendMessage(message);
+        const responseText = result.response.text();
+
+        res.json({ reply: responseText });
+    } catch (error) {
+        console.error('Chat error:', error.message);
+        res.status(500).json({ message: 'Lỗi khi chat với AI', error: error.message });
+    }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
