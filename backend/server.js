@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
+const os = require('os');
 const supabase = require('./db/supabaseClient');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { GoogleAIFileManager } = require("@google/generative-ai/server");
@@ -87,9 +88,9 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Configure multer for file storage in /tmp
+// Configure multer for file storage using cross-platform OS temp dir
 const upload = multer({
-    dest: path.join('/tmp'), // Use the /tmp directory
+    dest: os.tmpdir(), // Thay vì cứng nhắc '/tmp' gây lỗi trên Windows
     limits: { fileSize: 200 * 1024 * 1024 } // Set limits to 200 MB
 });
 
@@ -106,7 +107,7 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
         }
 
         const audioFilePath = req.file.path; // Now pointing to /tmp
-        
+
         if (!req.file.mimetype.startsWith('audio/') && !req.file.mimetype.startsWith('video/')) {
             if (fs.existsSync(audioFilePath)) fs.unlinkSync(audioFilePath);
             return res.status(400).json({ message: "Unsupported file type. Only Audio and Video files are allowed." });
@@ -131,21 +132,20 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
 
         try {
             console.log("Đang upload audio lên Gemini Servers...");
-        const uploadResponse = await fileManager.uploadFile(audioFilePath, {
-            mimeType: req.file.mimetype,
-            displayName: "Medical Audio",
-        });
+            const uploadResponse = await fileManager.uploadFile(audioFilePath, {
+                mimeType: req.file.mimetype,
+                displayName: "Medical Audio",
+            });
 
-        const prompt = `Bạn là hệ thống AI thẩm định Y tế chuyên nghiệp. Quy trình xử lý của bạn:
-1. Lắng nghe và trích xuất (Transcription) toàn bộ nội dung hội thoại Tiếng Việt trong file âm thanh.
+            const prompt = `Bạn là hệ thống AI thẩm định Y tế chuyên nghiệp. Quy trình xử lý của bạn:
+1. Lắng nghe toàn bộ nội dung hội thoại Tiếng Việt trong file âm thanh.
 2. Tóm tắt nội dung chính của cuộc trao đổi (Summary).
 3. Rút ra 3 Insight quan trọng nhất có thể học hỏi hoặc cải thiện (Insights).
 4. Chấm điểm nhân viên y tế theo 5 tiêu chí (Rõ ràng, Chuyên nghiệp, Thấu cảm, Xử lý vấn đề, Hiệu quả) trên thang 10 điểm.
 
 Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sau:
 
-🎯 **BẢN DỊCH HỘI THOẠI (TRANSCRIPTION):**
-(Trích xuất toàn bộ câu chữ ở đây...)
+
 
 📝 **TÓM TẮT (SUMMARY):**
 (Tóm tắt nội dung...)
@@ -163,49 +163,49 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
 - Đạt hiệu quả (Efficiency): M/10 - Lời bình: ...
 `;
 
-        const modelName = "gemini-flash-latest"; // Dùng Flash để tăng tốc xử lý transcription
-        console.log(`Đang chờ ${modelName} phân tích và phân rã các lớp dữ liệu PRD...`);
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const resultStream = await model.generateContentStream([
-            {
-                fileData: {
-                    mimeType: uploadResponse.file.mimeType,
-                    fileUri: uploadResponse.file.uri
+            const modelName = "gemini-flash-latest"; // Dùng Flash để tăng tốc xử lý transcription
+            console.log(`Đang chờ ${modelName} phân tích và phân rã các lớp dữ liệu PRD...`);
+            const model = genAI.getGenerativeModel({ model: modelName });
+            const resultStream = await model.generateContentStream([
+                {
+                    fileData: {
+                        mimeType: uploadResponse.file.mimeType,
+                        fileUri: uploadResponse.file.uri
+                    }
+                },
+                { text: prompt }
+            ]);
+
+            let transcriptionText = '';
+
+            for await (const chunk of resultStream.stream) {
+                if (!heartBeatStopped) {
+                    clearInterval(keepAliveInterval);
+                    heartBeatStopped = true;
+                    res.write('\n\n');
                 }
-            },
-            { text: prompt }
-        ]);
-
-        let transcriptionText = '';
-
-        for await (const chunk of resultStream.stream) {
-            if (!heartBeatStopped) {
-                clearInterval(keepAliveInterval);
-                heartBeatStopped = true;
-                res.write('\n\n'); 
+                const chunkText = chunk.text();
+                transcriptionText += chunkText;
+                res.write(chunkText); // Stream ra màn hình ngay lập tức để giữ mạng sống
             }
-            const chunkText = chunk.text();
-            transcriptionText += chunkText;
-            res.write(chunkText); // Stream ra màn hình ngay lập tức để giữ mạng sống
-        }
-        res.end();
+            res.end();
 
-        console.log("=== Kế hoạch AI Xong ===", transcriptionText.substring(0, 50) + "...");
+            console.log("=== Kế hoạch AI Xong ===", transcriptionText.substring(0, 50) + "...");
 
-        // Xoá file trên cache của hệ thống Gemini giải phóng bộ nhớ
-        try { await fileManager.deleteFile(uploadResponse.file.name); } catch (e) { }
+            // Xoá file trên cache của hệ thống Gemini giải phóng bộ nhớ
+            try { await fileManager.deleteFile(uploadResponse.file.name); } catch (e) { }
 
-        const audioUrl = "file_not_hosted_by_openai_yet"; // Placeholder vì OpenAI ko tự lưu file
+            const audioUrl = "file_not_hosted_by_openai_yet"; // Placeholder vì OpenAI ko tự lưu file
 
-        // Save transcription details to the database (Supabase)
-        const { data: transcriptionData, error: dbError } = await supabase.from('transcriptions').insert([{
-            audioURL: audioUrl,
-            transcription: transcriptionText,
-            status: 'completed',
-            user_id: userId
-        }]).select().single();
+            // Save transcription details to the database (Supabase)
+            const { data: transcriptionData, error: dbError } = await supabase.from('transcriptions').insert([{
+                audioURL: audioUrl,
+                transcription: transcriptionText,
+                status: 'completed',
+                user_id: userId
+            }]).select().single();
 
-        if (dbError) console.error("Lỗi lưu DB mồ côi:", dbError);
+            if (dbError) console.error("Lỗi lưu DB mồ côi:", dbError);
         } finally {
             if (!heartBeatStopped) clearInterval(keepAliveInterval);
         }
