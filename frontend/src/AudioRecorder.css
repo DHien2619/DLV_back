@@ -1420,8 +1420,20 @@ body.light-theme .msg-bubble-user {
     color: #111;
 }
 
-body.light-theme .msg-bubble-ai {
+body.light-theme .ai-text-body,
+body.light-theme .ai-text-body p,
+body.light-theme .ai-text-body li,
+body.light-theme .ai-text-body strong {
     color: #111;
+}
+
+body.light-theme .insight-block {
+    background: #f0f0f0;
+    border-left-color: #6366f1;
+}
+
+body.light-theme .insight-block p {
+    color: #333;
 }
 
 body.light-theme .history-item {
