@@ -95,7 +95,7 @@ const upload = multer({
 });
 
 // Audio upload and transcription endpoint
-app.post('/upload', upload.single('audio'), async (req, res) => {
+app.post('/upload', upload.single('file'), async (req, res) => {
     try {
         const { userId } = req.body;
         if (!userId) {
@@ -106,39 +106,42 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
             return res.status(400).json({ message: "No file uploaded." });
         }
 
-        const audioFilePath = req.file.path; // Now pointing to /tmp
+        const filePath = req.file.path; // Now pointing to /tmp
 
-        if (!req.file.mimetype.startsWith('audio/') && !req.file.mimetype.startsWith('video/')) {
-            if (fs.existsSync(audioFilePath)) fs.unlinkSync(audioFilePath);
-            return res.status(400).json({ message: "Unsupported file type. Only Audio and Video files are allowed." });
-        }
-
-        const stats = fs.statSync(audioFilePath);
+        const stats = fs.statSync(filePath);
         if (stats.size === 0) {
-            if (fs.existsSync(audioFilePath)) fs.unlinkSync(audioFilePath);
-            return res.status(400).json({ message: "Audio file is empty." });
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+            return res.status(400).json({ message: "File is empty." });
         }
 
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.flushHeaders(); // Ép hệ thống xả bộ nhớ đệm HTTP Headers gửi thẳng qua kẽ hở của Render Proxy
-        res.write(' '.repeat(4096)); // Độn ngay 4KB rác (khoảng trắng) để ép Cloudflare Buffer tràn cục bộ và buộc phải mở luồng Stream xuống Client ngay lập tức!
-        res.write('🔄 Đang phân tích âm thanh, xin vui lòng đợi trong giây lát...\n\n'); // Nội dung vừa làm mồi câu Bypass 100s, vừa thông báo cho User
+        res.flushHeaders(); 
+        res.write(' '.repeat(4096)); 
+        res.write('🔄 Đang phân tích dữ liệu, xin vui lòng đợi trong giây lát...\n\n');
 
-        // Bật Heartbeat ping '.' liên tục mỗi 5s để chống Cloudflare Idle Timeout 100s
         const keepAliveInterval = setInterval(() => {
             res.write(' . ');
         }, 5000);
         let heartBeatStopped = false;
 
         try {
-            console.log("Đang upload audio lên Gemini Servers...");
-            const uploadResponse = await fileManager.uploadFile(audioFilePath, {
+            console.log("Đang upload file lên Gemini Servers...");
+            const uploadResponse = await fileManager.uploadFile(filePath, {
                 mimeType: req.file.mimetype,
-                displayName: "Medical Audio",
+                displayName: "Medical Media",
             });
 
+            let modeInstruction = "Lắng nghe toàn bộ nội dung hội thoại";
+            if (req.file.mimetype.startsWith('image/')) {
+                modeInstruction = "Quan sát và đọc kỹ các thông tin trong hình ảnh";
+            } else if (req.file.mimetype.startsWith('text/') || req.file.mimetype.includes('pdf') || req.file.mimetype.includes('document')) {
+                modeInstruction = "Đọc và phân tích toàn bộ nội dung tài liệu";
+            }
+
             const prompt = `Bạn là hệ thống AI thẩm định Y tế chuyên nghiệp. Quy trình xử lý của bạn:
-1. Lắng nghe toàn bộ nội dung hội thoại Tiếng Việt trong file âm thanh.
+1. ${modeInstruction} (Tiếng Việt nếu có).
 2. Tóm tắt nội dung chính của cuộc trao đổi (Summary).
 3. Rút ra 3 Insight quan trọng nhất có thể học hỏi hoặc cải thiện (Insights).
 4. Chấm điểm nhân viên y tế theo 5 tiêu chí (Rõ ràng, Chuyên nghiệp, Thấu cảm, Xử lý vấn đề, Hiệu quả) trên thang 10 điểm.

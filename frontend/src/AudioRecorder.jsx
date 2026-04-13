@@ -243,7 +243,7 @@ const AudioRecorder = () => {
             patchSession(sid, { loadingLabel: `Đang phiên dịch ${files.length} file...` });
             const uploadPromises = files.map(file => {
                 const formData = new FormData();
-                formData.append('audio', file);
+                formData.append('file', file);
                 formData.append('userId', userId);
                 return axios.post(`${API_URL}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000 })
                     .then(res => ({ name: file.name, transcription: res.data.transcription || (typeof res.data === 'string' ? res.data : '') }))
@@ -766,7 +766,7 @@ const AudioRecorder = () => {
                                 <line x1="4" y1="12" x2="20" y2="12" />
                             </svg>
                         </button>
-                        <input type="file" ref={fileInputRef} accept="audio/*,video/webm" multiple onChange={handleFileChange} />
+                        <input type="file" ref={fileInputRef} accept="audio/*,video/webm,image/*,application/pdf,text/plain,.doc,.docx" multiple onChange={handleFileChange} />
 
                         <textarea
                             ref={textareaRef}
