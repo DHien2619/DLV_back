@@ -729,28 +729,7 @@ const AudioRecorder = () => {
                 <div className="chat-messages">
                     {messages.length === 0 && (
                         <div className="empty-state">
-                            <div className="empty-state-icon">✨</div>
-                            <h2>PharmaVoice AI</h2>
-                            <p>Hỏi bất kỳ điều gì về y tế, dược học,<br />hoặc upload file ghi âm để phân tích cuộc tư vấn.</p>
-                            <div className="suggestion-pills">
-                                {[
-                                    '💊 Tác dụng phụ Paracetamol là gì?',
-                                    '🩺 Upload file ghi âm để phân tích',
-                                    '📋 Hướng dẫn tư vấn bệnh nhân tiểu đường',
-                                    '💬 Cách viết toa thuốc chuẩn mực?'
-                                ].map((s, i) => (
-                                    <button key={i} className="suggestion-pill"
-                                        onClick={() => {
-                                            if (s.includes('Upload')) fileInputRef.current.click();
-                                            else {
-                                                setInputText(s.replace(/^[^\s]+\s/, ''));
-                                                textareaRef.current?.focus();
-                                            }
-                                        }}>
-                                        {s}
-                                    </button>
-                                ))}
-                            </div>
+                            {/* Bỏ giao diện chat rỗng theo yêu cầu */}
                         </div>
                     )}
 
@@ -758,15 +737,19 @@ const AudioRecorder = () => {
                         <div key={i} className={`message-row ${msg.role === 'user' ? 'user-row-msg' : 'ai-row-msg'}`}>
                             {msg.role === 'user' ? (
                                 <div className="user-msg-container">
-                                    <div className="msg-bubble-user">{renderAIText(msg.content)}</div>
+                                    <div className="msg-bubble-user">
+                                        {renderAIText(msg.content)}
+                                    </div>
                                     <div className="user-avatar-bubble">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="msg-ai-content">
+                                <div className="ai-msg-container">
                                     <div className="ai-avatar-icon">✨</div>
-                                    <div className="ai-text-body">{renderAIText(msg.content)}</div>
+                                    <div className="msg-ai-content">
+                                        <div className="ai-text-body">{renderAIText(msg.content)}</div>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -774,11 +757,11 @@ const AudioRecorder = () => {
 
                     {isLoading && (
                         <div className="message-row ai-row-msg">
-                            <div className="msg-ai-content">
+                            <div className="ai-msg-container">
                                 <div className="ai-avatar-icon">✨</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div className="msg-ai-content" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 16px' }}>
                                     <div className="loading-dots"><span /><span /><span /></div>
-                                    <div className="loading-label">{loadingLabel}</div>
+                                    <div className="loading-label">{loadingLabel || 'Đang suy nghĩ...'}</div>
                                 </div>
                             </div>
                         </div>

@@ -1602,3 +1602,11 @@ body.light-theme .history-item.active {
     align-items: flex-end;
 }
 
+
+.ai-msg-container {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    width: 100%;
+}
+
