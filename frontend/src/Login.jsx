@@ -6,10 +6,12 @@ import { useNavigate } from 'react-router-dom';
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
         try {
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
             const response = await axios.post(`${API_URL}/login`, { email, password });
@@ -24,6 +26,8 @@ const Login = () => {
         } catch (error) {
             console.error("Error logging in:", error.response ? error.response.data : error.message);
             alert("Login failed. Please check your credentials.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -72,7 +76,9 @@ const Login = () => {
                             <a href="#" className="forgot-password">Forgot password?</a>
                         </div>
                         
-                        <button type="submit" className="login-btn">Login</button>
+                        <button type="submit" className="login-btn" disabled={isLoading}>
+                            {isLoading ? 'Đang gọi Server (Chờ xíu nhé...)' : 'Login'}
+                        </button>
                     </form>
                     
                     <div className="auth-switch">

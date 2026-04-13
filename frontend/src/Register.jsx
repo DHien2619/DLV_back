@@ -7,10 +7,12 @@ const Register = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
         try {
             const defaultAvatar = "https://cdn.iconscout.com/icon/free/png-256/free-avatar-370-456322.png";
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -28,6 +30,8 @@ const Register = () => {
         } catch (error) {
             console.error("Error registering user:", error.response ? error.response.data : error.message);
             alert("Registration failed. Please try again.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -79,7 +83,9 @@ const Register = () => {
                             />
                         </div>
                         
-                        <button type="submit" className="login-btn" style={{ marginTop: '10px' }}>Sign up</button>
+                        <button type="submit" className="login-btn" disabled={isLoading}>
+                            {isLoading ? 'Đang gọi Server (Chờ xíu nhé...)' : 'Sign up'}
+                        </button>
                     </form>
                     
                     <div className="auth-switch" style={{ marginTop: '20px' }}>
