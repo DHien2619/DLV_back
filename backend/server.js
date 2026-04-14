@@ -73,7 +73,7 @@ Yêu Cầu:
 - Tính đến hiện tại, tổng số cuộc gọi là: ${totalCalls + 1}. Hãy cập nhật con số này vào Wiki.
 - Nếu cuộc gọi mới có điểm số (1-10), hãy tính toán / ước lượng lại sự thay đổi hiệu suất một cách tự nhiên.`;
 
-        const model = genAI.getGenerativeModel({ model: "gemini-pro-latest" }); 
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" }); 
         const result = await model.generateContent(prompt);
         const newWikiContent = result.response.text();
         
