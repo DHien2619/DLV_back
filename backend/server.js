@@ -445,8 +445,9 @@ Quy tắc trả lời BẮT BUỘC:
         let result = await chat.sendMessage(finalMessage);
         
         // Vòng lặp Agent: Kiểm tra xem AI có muốn lấy rổ đồ nghề ra không
-        if (result.response.functionCalls && result.response.functionCalls.length > 0) {
-            const call = result.response.functionCalls[0];
+        const callArgs = result.response.functionCalls();
+        if (callArgs && callArgs.length > 0) {
+            const call = callArgs[0];
             if (call.name === 'getEmployeeWiki') {
                 console.log(`[AGENT] Tham chiếu DB cho tool ${call.name} với tham số:`, call.args);
                 
