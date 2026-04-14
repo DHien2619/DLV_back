@@ -415,33 +415,38 @@ const AudioRecorder = () => {
     };
 
     // ── Handle Customer Form Submission
-    const handlePostUploadCustomerInfo = async (sid, msgIndex, identifier, transcription) => {
-        if (!identifier.trim()) {
-            toast.error("Vui lòng chọn hoặc nhập tên khách hàng!");
+    const handlePostUploadCustomerInfo = async (sid, msgIndex, phone, name, transcription) => {
+        // Identifier: SĐT ưu tiên, fallback là Tên
+        const identifier = phone.trim() || name.trim();
+        if (!identifier) {
+            toast.error("Vui lòng nhập ít nhất Tên hoặc SĐT khách hàng!");
             return;
         }
 
+        const displayLabel = name.trim() ? `${name.trim()} (${phone.trim() || 'không có SĐT'})` : phone.trim();
         const toastId = toast.loading("Đang đẩy dữ liệu vào Wiki...");
         try {
-            await axios.post(`${API_URL}/update-customer-wiki`, { identifier, transcription });
+            await axios.post(`${API_URL}/update-customer-wiki`, {
+                identifier,           // SĐT (hoặc Tên nếu không có SĐT) — dùng làm khóa DB
+                customerName: name.trim() || null,  // Tên khách hàng riêng
+                transcription
+            });
             toast.update(toastId, { render: "Đã cập nhật Wiki Khách hàng!", type: "success", isLoading: false, autoClose: 3000 });
 
-            // Đánh dấu form này đã xử lý xong
             setSessionData(prev => {
                 const temp = prev[sid] || emptySession();
-                const updatedMsgs = temp.messages.map((m, i) => 
-                    i === msgIndex ? { ...m, processed: true, identifierUsed: identifier } : m
+                const updatedMsgs = temp.messages.map((m, i) =>
+                    i === msgIndex ? { ...m, processed: true, identifierUsed: displayLabel } : m
                 );
                 persistSession(sid, updatedMsgs);
                 return { ...prev, [sid]: { ...temp, messages: updatedMsgs } };
             });
-            
-            // Refresh danh sách khách hàng
             fetchCustomers();
         } catch (err) {
             toast.update(toastId, { render: "Lỗi khi cập nhật Wiki: " + (err.response?.data?.message || err.message), type: "error", isLoading: false, autoClose: 3000 });
         }
     };
+
 
     const deleteSession = (id) => {
         setChatSessions(prev => {
@@ -815,64 +820,84 @@ const AudioRecorder = () => {
                                                 </div>
                                             ) : (
                                                 <div className="advanced-form-container">
-                                                    <div className="form-inputs-row">
-                                                        <div className="form-field">
-                                                            <label>Tên khách hàng</label>
-                                                            <div className="custom-select-wrapper">
-                                                                <input 
-                                                                    type="text" 
-                                                                    className="form-input-main"
-                                                                    placeholder="Gõ tên khách..." 
-                                                                    id={`cust-input-${i}`}
-                                                                    autoComplete="off"
-                                                                    onFocus={() => {
+                                                    {/* Tên khách hàng — có dropdown tìm kiếm */}
+                                                    <div className="form-field">
+                                                        <label>Tên khách hàng</label>
+                                                        <div className="custom-select-wrapper">
+                                                            <input
+                                                                type="text"
+                                                                className="form-input-main"
+                                                                placeholder="Gõ tên khách..."
+                                                                id={`cust-input-${i}`}
+                                                                autoComplete="off"
+                                                                onFocus={() => {
+                                                                    const dropdown = document.getElementById(`dropdown-${i}`);
+                                                                    if (dropdown) dropdown.classList.add('show');
+                                                                }}
+                                                                onBlur={() => {
+                                                                    setTimeout(() => {
                                                                         const dropdown = document.getElementById(`dropdown-${i}`);
-                                                                        if (dropdown) dropdown.classList.add('show');
-                                                                    }}
-                                                                    onBlur={() => {
-                                                                        setTimeout(() => {
-                                                                            const dropdown = document.getElementById(`dropdown-${i}`);
-                                                                            if (dropdown) dropdown.classList.remove('show');
-                                                                        }, 200);
-                                                                    }}
-                                                                    onChange={(e) => {
-                                                                        const val = e.target.value.toLowerCase();
-                                                                        const items = document.querySelectorAll(`#dropdown-${i} .dropdown-item`);
-                                                                        items.forEach(item => {
-                                                                            const text = item.innerText.toLowerCase();
-                                                                            item.style.display = text.includes(val) ? 'block' : 'none';
-                                                                        });
-                                                                    }}
-                                                                />
-                                                                <div className="dropdown-panel" id={`dropdown-${i}`}>
-                                                                    <div className="dropdown-header">DANH SÁCH KHÁCH HÀNG</div>
-                                                                    <div className="dropdown-list">
-                                                                        {allCustomers.length === 0 ? (
-                                                                            <div className="dropdown-empty">Chưa có khách cũ</div>
-                                                                        ) : (
-                                                                            allCustomers.map((c, idx) => (
+                                                                        if (dropdown) dropdown.classList.remove('show');
+                                                                    }, 200);
+                                                                }}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value.toLowerCase();
+                                                                    const items = document.querySelectorAll(`#dropdown-${i} .dropdown-item`);
+                                                                    items.forEach(item => {
+                                                                        const text = item.innerText.toLowerCase();
+                                                                        item.style.display = text.includes(val) ? 'block' : 'none';
+                                                                    });
+                                                                }}
+                                                            />
+                                                            <div className="dropdown-panel" id={`dropdown-${i}`}>
+                                                                <div className="dropdown-header">KHÁCH HÀNG CŨ</div>
+                                                                <div className="dropdown-list">
+                                                                    {allCustomers.length === 0 ? (
+                                                                        <div className="dropdown-empty">Chưa có khách cũ</div>
+                                                                    ) : (
+                                                                        allCustomers.map((c, idx) => {
+                                                                            const displayName = c.customer_name || c.customer_phone;
+                                                                            const phone = c.customer_phone;
+                                                                            const isPhoneKey = /^0\d{9,10}$/.test(phone);
+                                                                            return (
                                                                                 <div key={idx} className="dropdown-item" onClick={() => {
-                                                                                    const input = document.getElementById(`cust-input-${i}`);
-                                                                                    if (input) input.value = c.customer_phone;
+                                                                                    // Điền tên vào ô Tên
+                                                                                    const nameInput = document.getElementById(`cust-input-${i}`);
+                                                                                    if (nameInput) nameInput.value = displayName;
+                                                                                    // Auto-fill SĐT nếu khóa DB là số điện thoại
+                                                                                    const phoneInput = document.getElementById(`cust-phone-${i}`);
+                                                                                    if (phoneInput) phoneInput.value = isPhoneKey ? phone : '';
                                                                                 }}>
-                                                                                    {c.customer_phone}
+                                                                                    <span style={{ fontWeight: 600 }}>{displayName}</span>
+                                                                                    {isPhoneKey && <span style={{ fontSize: '11px', color: '#888', marginLeft: '6px' }}>{phone}</span>}
                                                                                 </div>
-                                                                            ))
-                                                                        )}
-                                                                    </div>
+                                                                            );
+                                                                        })
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="form-field">
-                                                            <label>SĐT (Không bắt buộc)</label>
-                                                            <input type="text" className="form-input-main" placeholder="09xxx..." id={`cust-phone-${i}`} />
-                                                        </div>
                                                     </div>
+
+                                                    {/* SĐT — khóa chính của DB */}
+                                                    <div className="form-field">
+                                                        <label>Số điện thoại <span style={{ color: '#818cf8', fontSize: '10px' }}>(KHÓA ĐỊNH DANH)</span></label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-input-main"
+                                                            placeholder="09xxx... (dùng làm khóa DB)"
+                                                            id={`cust-phone-${i}`}
+                                                        />
+                                                    </div>
+
                                                     <button className="save-wiki-btn" onClick={() => {
-                                                        const name = document.getElementById(`cust-input-${i}`).value;
-                                                        const phone = document.getElementById(`cust-phone-${i}`).value;
-                                                        const finalId = phone ? `${name} (${phone})` : name;
-                                                        handlePostUploadCustomerInfo(activeId, i, finalId, msg.transcriptionForWiki);
+                                                        const name = document.getElementById(`cust-input-${i}`).value.trim();
+                                                        const phone = document.getElementById(`cust-phone-${i}`).value.trim();
+                                                        if (!phone && !name) {
+                                                            toast.error("Vui lòng nhập tên hoặc SĐT!");
+                                                            return;
+                                                        }
+                                                        handlePostUploadCustomerInfo(activeId, i, phone, name, msg.transcriptionForWiki);
                                                     }}>
                                                         Lưu vào Database Wiki
                                                     </button>

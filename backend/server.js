@@ -92,10 +92,11 @@ Yêu Cầu:
 }
 
 // ── LLM WIKI UPDATER: CUSTOMER ────────────────────────────────
-async function updateCustomerWiki(customerIdentifier, newTranscriptionText) {
+async function updateCustomerWiki(customerIdentifier, newTranscriptionText, customerName = '') {
     if (!customerIdentifier) return;
     try {
-        console.log(`[Customer Wiki] Đang cập nhật hồ sơ khách hàng: ${customerIdentifier}`);
+        const displayName = customerName || customerIdentifier;
+        console.log(`[Customer Wiki] Đang cập nhật hồ sơ: ${displayName} (${customerIdentifier})`);
 
         const { data: existingWiki } = await supabase
             .from('customer_wiki')
@@ -110,7 +111,7 @@ async function updateCustomerWiki(customerIdentifier, newTranscriptionText) {
 
 QUAN TRỌNG: Tổng số lần tương tác CHÍNH THỨC theo hệ thống là ${totalCalls + 1} lần. LUÔN dùng con số này, KHÔNG dùng con số từ nội dung ghi âm.
 
-Đây là HỒ SƠ HIỆN TẠI của khách hàng [${customerIdentifier}]:
+Đây là HỒ SƠ HIỆN TẠI của khách hàng [${displayName}] - SĐT: ${customerIdentifier}:
 ---
 ${oldWikiContent}
 ---
@@ -122,9 +123,10 @@ ${newTranscriptionText}
 
 Yêu Cầu:
 Hãy rà soát HỒ SƠ HIỆN TẠI và THÔNG TIN MỚI, sau đó VIẾT LẠI một Hồ Sơ Bệnh Án / Lịch sử mua hàng hoàn chỉnh và súc tích bằng Markdown. Bắt buộc:
+- Dòng đầu tiên: # Hồ Sơ Khách Hàng: ${displayName} (${customerIdentifier})
 - Ghi nhận Thông tin y tế (Chỉ số huyết áp, bệnh lý, triệu chứng...).
 - Lịch sử mua sản phẩm (Đã mua gì, lúc nào).
-- Ghi chú nhắc nhở chăm sóc (Ví dụ: Khách nhắc tuần sau giao, dặn dò uống thuốc...).
+- Ghi chú nhắc nhở chăm sóc.
 - Tổng số lần tương tác: **${totalCalls + 1} lần** (theo hệ thống — KHÔNG thay đổi con số này).`;
 
         const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
@@ -133,6 +135,7 @@ Hãy rà soát HỒ SƠ HIỆN TẠI và THÔNG TIN MỚI, sau đó VIẾT LẠI
 
         const { error: upsertErr } = await supabase.from('customer_wiki').upsert({
             customer_phone: customerIdentifier,
+            customer_name: customerName || null,
             wiki_content: newWikiContent,
             total_calls: totalCalls + 1,
             last_updated: new Date()
@@ -141,7 +144,7 @@ Hãy rà soát HỒ SƠ HIỆN TẠI và THÔNG TIN MỚI, sau đó VIẾT LẠI
         if (upsertErr) {
             console.error(`[Customer Wiki] Lỗi DB khi cập nhật khách ${customerIdentifier}:`, upsertErr.message);
         } else {
-            console.log(`[Customer Wiki] ✅ Đã cập nhật thành công hồ sơ khách: ${customerIdentifier}`);
+            console.log(`[Customer Wiki] ✅ Đã cập nhật thành công hồ sơ: ${displayName}`);
         }
     } catch (e) {
         console.error("[Customer Wiki] Lỗi trong quá trình cập nhật:", e);
@@ -481,10 +484,10 @@ Quy tắc trả lời BẮT BUỘC:
 
 // ── Update customer wiki (from frontend form) ─────────────────
 app.post('/update-customer-wiki', async (req, res) => {
-    const { identifier, transcription } = req.body;
+    const { identifier, transcription, customerName } = req.body;
     if (!identifier || !transcription) return res.status(400).json({ message: "Missing data" });
     try {
-        await updateCustomerWiki(identifier, transcription);
+        await updateCustomerWiki(identifier, transcription, customerName);
         res.json({ message: "Cập nhật thành công!" });
     } catch (error) {
         res.status(500).json({ message: "Lỗi", error: error.message });
@@ -495,7 +498,7 @@ app.post('/update-customer-wiki', async (req, res) => {
 app.get('/customers', async (req, res) => {
     try {
         const { data, error } = await supabase.from('customer_wiki')
-            .select('customer_phone, last_updated')
+            .select('customer_phone, customer_name, last_updated')
             .order('last_updated', { ascending: false });
         if (error) throw error;
         res.json(data);
