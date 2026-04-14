@@ -229,9 +229,16 @@ app.post('/chat', async (req, res) => {
             }
         }
 
-        const reply = result.response.text();
+        let reply = "";
+        try {
+            reply = result.response.text();
+        } catch (e) {
+            console.error("[CHAT] Lỗi khi lấy văn bản phản hồi:", e);
+            reply = "Tôi đã tra cứu xong thông tin bạn cần nhưng gặp khó khăn khi trình bày. Bạn hãy hỏi lại cụ thể hơn nhé!";
+        }
+
         console.log(`[CHAT] AI phản hồi: "${reply.substring(0, 50)}..."`);
-        res.json({ reply });
+        res.json({ reply: reply || "AI không trả về nội dung, vui lòng thử lại." });
     } catch (error) {
         console.error('Chat error:', error.message);
         res.status(500).json({ error: error.message });

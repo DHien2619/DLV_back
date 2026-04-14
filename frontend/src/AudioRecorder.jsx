@@ -269,7 +269,8 @@ const AudioRecorder = () => {
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
         try {
             const res = await axios.post(`${API_URL}/chat`, { message: text, history });
-            const aiMsg = { role: 'assistant', content: res.data.reply };
+            const reply = res.data?.reply || "⚠️ AI đang bận xử lý dữ liệu khác, bạn vui lòng hỏi lại câu này sau vài giây nhé!";
+            const aiMsg = { role: 'assistant', content: reply };
             setSessionData(prev => {
                 const temp = prev[sid] || emptySession();
                 const updated = [...temp.messages, aiMsg];
