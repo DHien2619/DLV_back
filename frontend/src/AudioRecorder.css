@@ -1627,3 +1627,83 @@ body.light-theme .history-item.active {
     width: 100%;
 }
 
+/* CUSTOMER FORM CARD STYLES */
+.customer-form-card {
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 10px 0;
+    width: 100%;
+    max-width: 450px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    animation: fadeInSlide 0.3s ease-out;
+}
+
+.form-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #818cf8;
+    margin-bottom: 12px;
+}
+
+.form-header h4 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.form-desc {
+    font-size: 13px;
+    color: #8e8ea0;
+    margin-bottom: 16px;
+}
+
+.form-body {
+    display: flex;
+    gap: 8px;
+}
+
+.form-body input {
+    flex: 1;
+    background: #121212;
+    border: 1px solid #333;
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: white;
+    font-size: 14px;
+}
+
+.form-body button {
+    background: #818cf8;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s;
+}
+
+.form-body button:hover {
+    background: #6366f1;
+}
+
+.form-success-state {
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+@keyframes fadeInSlide {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media screen and (max-width: 768px) {
+    .customer-form-card {
+        max-width: 100%;
+    }
+}

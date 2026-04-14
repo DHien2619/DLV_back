@@ -304,9 +304,16 @@ const AudioRecorder = () => {
             }
 
             const aiMsg = { role: 'assistant', content: finalReply };
+            const formMsg = { 
+                role: 'assistant', 
+                isCustomerForm: true, 
+                transcriptionForWiki: combined, // Dùng để lưu vào wiki sau khi nhập thông tin khách
+                processed: false 
+            };
+
             setSessionData(prev => {
                 const temp = prev[sid] || emptySession();
-                const updated = [...temp.messages, aiMsg];
+                const updated = [...temp.messages, aiMsg, formMsg];
                 persistSession(sid, updated);
                 return { ...prev, [sid]: { ...temp, messages: updated, loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
             });
@@ -387,7 +394,34 @@ const AudioRecorder = () => {
         setRenameValue('');
     };
 
-    // ── Delete
+    // ── Handle Customer Form Submission
+    const handlePostUploadCustomerInfo = async (sid, msgIndex, identifier, transcription) => {
+        if (!identifier.trim()) {
+            toast.error("Vui lòng nhập tên hoặc SĐT khách hàng!");
+            return;
+        }
+
+        try {
+            toast.loading("Đang đẩy dữ liệu vào Wiki...");
+            await axios.post(`${API_URL}/update-customer-wiki`, { identifier, transcription });
+            toast.dismiss();
+            toast.success("Đã cập nhật Wiki Khách hàng!");
+
+            // Đánh dấu form này đã xử lý xong
+            setSessionData(prev => {
+                const temp = prev[sid] || emptySession();
+                const updatedMsgs = temp.messages.map((m, i) => 
+                    i === msgIndex ? { ...m, processed: true, identifierUsed: identifier } : m
+                );
+                persistSession(sid, updatedMsgs);
+                return { ...prev, [sid]: { ...temp, messages: updatedMsgs } };
+            });
+        } catch (err) {
+            toast.dismiss();
+            toast.error("Lỗi khi cập nhật Wiki: " + (err.response?.data?.message || err.message));
+        }
+    };
+
     const deleteSession = (id) => {
         setChatSessions(prev => {
             const updated = prev.filter(s => s.id !== id);
@@ -735,6 +769,42 @@ const AudioRecorder = () => {
                             {msg.role === 'user' ? (
                                 <div className="msg-bubble-user">
                                     {renderAIText(msg.content)}
+                                </div>
+                            ) : msg.isCustomerForm ? (
+                                <div className="customer-form-card">
+                                    <div className="form-header">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <h4>Lưu hồ sơ khách hàng</h4>
+                                    </div>
+                                    
+                                    {msg.processed ? (
+                                        <div className="form-success-state">
+                                            ✅ Đã lưu vào Wiki cho: **{msg.identifierUsed}**
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p className="form-desc">AI đã phân tích xong. Vui lòng xác nhận danh tính khách hàng để lưu vào Wiki.</p>
+                                            <div className="form-body">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Tên hoặc SĐT khách hàng..." 
+                                                    id={`cust-input-${i}`}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            const val = e.target.value;
+                                                            handlePostUploadCustomerInfo(activeId, i, val, msg.transcriptionForWiki);
+                                                        }
+                                                    }}
+                                                />
+                                                <button onClick={() => {
+                                                    const val = document.getElementById(`cust-input-${i}`).value;
+                                                    handlePostUploadCustomerInfo(activeId, i, val, msg.transcriptionForWiki);
+                                                }}>
+                                                    Lưu Wiki
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="msg-ai-content">

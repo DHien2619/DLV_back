@@ -546,6 +546,19 @@ Quy tắc trả lời BẮT BUỘC:
             res.status(500).json({ message: 'Lỗi khi chat với AI', error: error.message });
         }
     });
+    
+    // Standalone endpoint to update customer wiki (for post-upload form)
+    app.post('/update-customer-wiki', async (req, res) => {
+        const { identifier, transcription } = req.body;
+        if (!identifier || !transcription) return res.status(400).json({ message: "Missing data" });
+        
+        try {
+            await updateCustomerWiki(identifier, transcription);
+            res.json({ message: "Cập nhật thành công!" });
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi", error: error.message });
+        }
+    });
 
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
