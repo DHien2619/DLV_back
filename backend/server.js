@@ -22,7 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Sửa lỗi CORS triệt để cho Vercel & Railway
 const corsOptions = {
-    origin: '*', 
+    origin: [/https:\/\/.*\.vercel\.app$/, "https://dlv-back.vercel.app", "http://localhost:5173", "http://localhost:3000"],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
     credentials: true,
