@@ -155,23 +155,36 @@ async function getEmployeeWikiApi(query) {
 }
 
 async function getCustomerWikiApi(query) {
-    console.log(`[DB SEARCH] Đang tìm khách hàng cho từ khóa: "${query}"`);
+    console.log(`[DB SEARCH] Bắt đầu Hyper Search cho: "${query}"`);
     const cleanQuery = query.trim();
-    // Tìm kiếm mờ (ilike) trên cả nội dung wiki và cột customer_phone (vốn đang chứa tên)
+    
+    // Tạo danh sách các từ khóa con để tìm kiếm mở rộng (Ví dụ: "Hùng Vũ" -> ["Hùng", "Vũ"])
+    const words = cleanQuery.split(' ').filter(w => w.length > 1);
+    let orQuery = `customer_phone.ilike.%${cleanQuery}%,wiki_content.ilike.%${cleanQuery}%`;
+    
+    // Thêm các từ khóa con vào chuỗi OR để tìm kiếm mờ rộng hơn
+    words.forEach(word => {
+        orQuery += `,customer_phone.ilike.%${word}%,wiki_content.ilike.%${word}%`;
+    });
+
     const { data, error } = await supabase
         .from('customer_wiki')
         .select('*')
-        .or(`customer_phone.ilike.%${cleanQuery}%,wiki_content.ilike.%${cleanQuery}%`)
+        .or(orQuery)
         .order('updated_at', { ascending: false })
-        .limit(3);
+        .limit(5);
 
     if (error) {
-        console.error('[DB SEARCH] Lỗi Supabase:', error.message);
-        return "Lỗi truy cập Database.";
+        console.error('[DB SEARCH] Supabase Error:', error.message);
+        return "Lỗi kết nối database.";
     }
 
     if (!data || data.length === 0) {
-        return `Không tìm thấy thông tin nào cho từ khóa "${cleanQuery}". Hãy thử tìm kiếm bằng tên khác hoặc số điện thoại.`;
+        // Fallback: Nếu không tìm thấy, thử tìm toàn bộ bảng và để AI tự lọc (chỉ lấy 10 dòng mới nhất)
+        const { data: allData } = await supabase.from('customer_wiki').select('*').limit(10);
+        return allData && allData.length > 0 
+            ? JSON.stringify(allData) 
+            : `Không tìm thấy bất kỳ dữ liệu nào cho "${cleanQuery}".`;
     }
 
     console.log(`[DB SEARCH] Tìm thấy ${data.length} kết quả.`);
