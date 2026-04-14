@@ -209,12 +209,19 @@ app.post('/chat', async (req, res) => {
         console.log(`[CHAT] Đang gửi message: "${finalMessage.substring(0, 50)}..."`);
         let result = await chat.sendMessage(finalMessage);
 
-        const call = result.response.functionCalls()?.[0];
+        // Xử lý Function Call (Agent Tool)
+        const call = result.response.functionCall;
         if (call && agentTools[call.name]) {
-            console.log(`[CHAT AGENT] Đang tra cứu DB cho: ${call.name} -> ${JSON.stringify(call.args)}`);
-            const apiRes = await agentTools[call.name](call.args);
-            console.log(`[CHAT AGENT] Kết quả DB: ${apiRes.substring(0, 50)}...`);
-            result = await chat.sendMessage([{ functionResponse: { name: call.name, response: { content: apiRes } } }]);
+            try {
+                console.log(`[CHAT AGENT] Đang tra cứu DB cho: ${call.name} -> ${JSON.stringify(call.args)}`);
+                const apiRes = await agentTools[call.name](call.args);
+                console.log(`[CHAT AGENT] Kết quả DB: ${apiRes.substring(0, 50)}...`);
+                
+                // Gửi kết quả tool lại cho AI
+                result = await chat.sendMessage([{ functionResponse: { name: call.name, response: { content: apiRes } } }]);
+            } catch (toolErr) {
+                console.error('[CHAT AGENT] Lỗi khi chạy Tool:', toolErr);
+            }
         }
 
         const reply = result.response.text();
