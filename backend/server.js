@@ -189,42 +189,31 @@ app.post('/chat', async (req, res) => {
             ]
         });
 
-        // Chuyển sang dùng generateContent trực tiếp để tăng độ ổn định với Tools
-        const contents = [
-            { role: 'user', parts: [{ text: `Hệ thống: Bạn là PharmaVoice AI. Dưới đây là lịch sử chat: ${JSON.stringify(history)}. Câu hỏi mới: ${message}` }] }
-        ];
+        // Bước 1: Cho AI suy nghĩ xem có cần dùng Tool không
+        console.log(`[AGENT] Đang phân tích yêu cầu: "${message}"`);
+        let result = await model.generateContent(message);
 
-        console.log(`[CHAT] Đang gửi nội dung phân tích...`);
-        let result = await model.generateContent({ contents });
-
-        // Xử lý Function Call (Agent Tool)
+        // Bước 2: Xử lý Tool nếu có
         const call = result.response.functionCall;
+        let contextData = "";
+        
         if (call && agentTools[call.name]) {
-            try {
-                console.log(`[CHAT AGENT] Tra cứu: ${call.name} -> ${JSON.stringify(call.args)}`);
-                const apiRes = await agentTools[call.name](call.args);
-                
-                // Gửi lại đầy đủ bối cảnh + kết quả Tool cho AI và yêu cầu báo cáo
-                contents.push({ role: 'model', parts: [{ functionCall: call }] });
-                contents.push({ role: 'user', parts: [{ functionResponse: { name: call.name, response: { content: apiRes } } }] });
-                contents.push({ role: 'user', parts: [{ text: `Dữ liệu tìm được: ${apiRes}. Hãy dựa vào dữ liệu này trả lời Boss ngay lập tức, không được hỏi lại.` }] });
-
-                result = await model.generateContent({ contents });
-            } catch (toolErr) {
-                console.error('[CHAT AGENT] Tool error:', toolErr);
-            }
+            console.log(`[AGENT TOOL] Đang thực thi: ${call.name}`);
+            const apiRes = await agentTools[call.name](call.args);
+            contextData = `\nDỮ LIỆU TRA CỨU TỪ DATABASE:\n${apiRes}\n`;
         }
 
-        let reply = "";
-        try {
-            reply = result.response.text();
-        } catch (e) {
-            console.error("[CHAT] Lỗi Text:", e);
-            reply = "Tôi đã tìm thấy dữ liệu nhưng đang gặp lỗi định dạng. Bạn hãy thử hỏi lại nhé!";
-        }
+        // Bước 3: Tổng hợp câu trả lời cuối cùng (Agentic Response)
+        const finalPrompt = `Dựa trên yêu cầu: "${message}" ${contextData ? `và Dữ liệu sau: ${contextData}` : ""}
+        Hãy trả lời người dùng một cách chuyên nghiệp, đầy đủ và thân thiện như một trợ lý y tế. 
+        Sử dụng Markdown để trình bày kết quả tra cứu (nếu có).`;
 
-        console.log(`[CHAT] AI phản hồi: "${reply.substring(0, 50)}..."`);
-        res.json({ reply: reply || "Tôi đã tra cứu được thông tin nhưng AI chưa kịp tóm tắt. Bạn hãy thử hỏi lại câu này nhé!" });
+        console.log(`[AGENT] Đang tổng hợp câu trả lời cuối cùng...`);
+        const finalResult = await model.generateContent(finalPrompt);
+        
+        const reply = finalResult.response.text() || "Tôi đã tra cứu được dữ liệu nhưng gặp lỗi khi trình bày. Hãy thử lại nhé!";
+        console.log(`[AGENT] Hoàn tất.`);
+        res.json({ reply });
     } catch (error) {
         console.error('Chat error:', error.message);
         res.status(500).json({ error: error.message });
