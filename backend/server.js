@@ -196,6 +196,11 @@ app.post('/chat', async (req, res) => {
             }
         }
 
+        // SỬA LỖI: Gemini bắt buộc tin nhắn đầu tiên phải là 'user'
+        if (normalizedHistory.length > 0 && normalizedHistory[0].role === 'model') {
+            normalizedHistory.unshift({ role: 'user', parts: [{ text: "Chào bạn, tôi vừa gửi file và bạn đã phân tích nội dung đó. Hãy nhớ các thông tin này để hỗ trợ tôi." }] });
+        }
+
         // Gemini yêu cầu history không được kết thúc bằng 'user' nếu ta sắp gửi tin nhắn 'user' mới
         if (normalizedHistory.length > 0 && normalizedHistory[normalizedHistory.length - 1].role === 'user') {
             const lastUserMsg = normalizedHistory.pop();
