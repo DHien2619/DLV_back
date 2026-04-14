@@ -19,12 +19,16 @@ const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Sửa lỗi CORS triệt để cho Vercel & Railway
 const corsOptions = {
-    origin: '*', // Cho phép mọi Vercel Domain truy cập (tránh lỗi ngẫu nhiên khi Vercel sinh link mới)
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: '*', 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    credentials: true,
 };
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Middleware for token authentication
 const authenticateToken = (req, res, next) => {
@@ -38,539 +42,164 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// --- LLM WIKI UPDATER FUNCTION ---
+// --- LLM WIKI UPDATERS ---
 async function updateEmployeeWiki(employeePhone, newTranscriptionText) {
     try {
         console.log(`[LLM Wiki] Bắt đầu cập nhật wiki cho SĐT: ${employeePhone}`);
-
-        // 1. Fetch existing wiki
-        const { data: existingWiki, error: fetchErr } = await supabase
-            .from('employee_wiki')
-            .select('*')
-            .eq('employee_phone', employeePhone)
-            .single();
-
-        let oldWikiContent = existingWiki ? existingWiki.wiki_content : "Chưa có thông tin về nhân viên này trước đây.";
+        const { data: existingWiki } = await supabase.from('employee_wiki').select('*').eq('employee_phone', employeePhone).single();
+        let oldWikiContent = existingWiki ? existingWiki.wiki_content : "Chưa có thông tin.";
         let totalCalls = existingWiki ? existingWiki.total_calls : 0;
 
-        // 2. Build Prompt to summarize and update wiki
-        const prompt = `Bạn là hệ thống Kho Trí Thức LLM Wiki của PharmaVoice. Nhiệm vụ của bạn là CẬP NHẬT hồ sơ của nhân viên y tế / telesale dựa trên các cuộc gọi.
-
-Đây là HỒ SƠ HIỆN TẠI của nhân viên ${employeePhone}:
----
-${oldWikiContent}
----
-
-Đây là ĐÁNH GIÁ MỚI NHẤT từ cuộc gọi vừa xong:
----
-${newTranscriptionText}
----
-
-Hãy tổng hợp 2 thông tin trên để VIẾT LẠI một "Trang Wiki Hồ Sơ Nhân Viên" hoàn chỉnh, bằng ngôn ngữ Markdown chuyên nghiệp.
-Yêu Cầu:
-- Luôn giữ lại và cập nhật các phần: Điểm mạnh, điểm yếu, xu hướng nghề nghiệp, các insight cốt lõi.
-- Đừng xóa các thông tin quan trọng cũ, hãy TÍCH HỢP chúng lại một cách mạch lạc.
-- Tính đến hiện tại, tổng số cuộc gọi là: ${totalCalls + 1}. Hãy cập nhật con số này vào Wiki.
-- Nếu cuộc gọi mới có điểm số (1-10), hãy tính toán / ước lượng lại sự thay đổi hiệu suất một cách tự nhiên.`;
-
+        const prompt = `Bạn là hệ thống Kho Trí Thức LLM Wiki. Cập nhật hồ sơ nhân viên ${employeePhone} dựa trên cuộc gọi mới:\nOld: ${oldWikiContent}\nNew: ${newTranscriptionText}`;
         const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
         const result = await model.generateContent(prompt);
         const newWikiContent = result.response.text();
 
-        // 3. Upsert back to database
-        const { error: upsertErr } = await supabase.from('employee_wiki').upsert({
+        await supabase.from('employee_wiki').upsert({
             employee_phone: employeePhone,
             wiki_content: newWikiContent,
             total_calls: totalCalls + 1,
             last_updated: new Date()
         }, { onConflict: 'employee_phone' });
-
-        if (upsertErr) {
-            console.error(`[LLM Wiki] Lỗi DB khi cập nhật SĐT ${employeePhone}:`, upsertErr.message);
-        } else {
-            console.log(`[LLM Wiki] ✅ Đã cập nhật thành công hồ sơ SĐT: ${employeePhone}`);
-        }
-    } catch (e) {
-        console.error("[LLM Wiki] Lỗi trong quá trình cập nhật:", e);
-    }
+    } catch (e) { console.error(e); }
 }
-// ------------------------------------
 
-    // ==========================================
-    // THƯ KÝ 2: AGENT CẬP NHẬT CUSTOMER WIKI
-    // ==========================================
-    async function updateCustomerWiki(customerIdentifier, newTranscriptionText) {
-        if (!customerIdentifier) return;
-        try {
-            console.log(`[Customer Wiki] Đang cập nhật hồ sơ khách hàng: ${customerIdentifier}`);
+async function updateCustomerWiki(customerIdentifier, newTranscriptionText) {
+    if (!customerIdentifier) return;
+    try {
+        const { data: existingWiki } = await supabase.from('customer_wiki').select('*').eq('customer_phone', customerIdentifier).single();
+        let oldWikiContent = existingWiki ? existingWiki.wiki_content : "Khách hàng mới.";
+        let totalCalls = existingWiki ? existingWiki.total_calls : 0;
 
-            const { data: existingWiki } = await supabase
-                .from('customer_wiki')
-                .select('*')
-                .eq('customer_phone', customerIdentifier)
-                .single();
+        const prompt = `Cập nhật hồ sơ y tế khách hàng [${customerIdentifier}]. Tổng hợp bệnh lý, lịch sử mua hàng:\nOld: ${oldWikiContent}\nNew: ${newTranscriptionText}`;
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        const result = await model.generateContent(prompt);
 
-            let oldWikiContent = existingWiki ? existingWiki.wiki_content : "Khách hàng mới. Chưa có hồ sơ trước đây.";
-            let totalCalls = existingWiki ? existingWiki.total_calls : 0;
+        await supabase.from('customer_wiki').upsert({
+            customer_phone: customerIdentifier,
+            wiki_content: result.response.text(),
+            total_calls: totalCalls + 1,
+            last_updated: new Date()
+        }, { onConflict: 'customer_phone' });
+    } catch (e) { console.error(e); }
+}
 
-            const prompt = `Bạn là hệ thống Kho Trí Thức LLM Wiki của PharmaVoice. Nhiệm vụ của bạn là CẬP NHẬT HỒ SƠ Y TẾ / BỆNH LÝ của KHÁCH HÀNG dựa trên các cuộc gọi.
+// --- ROUTES ---
+app.get('/', (req, res) => res.json({ message: 'PharmaVoice API is live!' }));
 
-Đây là HỒ SƠ HIỆN TẠI của khách hàng [${customerIdentifier}]:
----
-${oldWikiContent}
----
+app.post('/register', async (req, res) => {
+    try {
+        const { name, email, password, image } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const { data: newUser } = await supabase.from('users').insert([{ name, email, password: hashedPassword, image, role: 'user' }]).select().single();
+        const token = jwt.sign({ userId: newUser.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+        res.status(201).json({ token, user: newUser });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
 
-Đây là CHUẨN ĐOÁN / GIAO DỊCH MỚI NHẤT từ cuộc gọi vừa xong:
----
-${newTranscriptionText}
----
+app.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const { data: user } = await supabase.from('users').select('*').eq('email', email).single();
+        if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ message: 'Invalid' });
+        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token, user });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
 
-Yêu Cầu:
-Hãy rà soát HỒ SƠ HIỆN TẠI và THÔNG TIN MỚI, sau đó VIẾT LẠI một Hồ Sơ Bệnh Án / Lịch sử mua hàng hoàn chỉnh và súc tích bằng Markdown. Bắt buộc:
-- Ghi nhận Thông tin y tế (Chỉ số huyết áp, bệnh lý, triệu chứng...).
-- Lịch sử mua sản phẩm (Đã mua gì, lúc nào).
-- Ghi chú nhắc nhở chăm sóc (Ví dụ: Khách nhắc tuần sau giao, dặn dò uống thuốc...).
-- Tính đến nay, khách đã tương tác ${totalCalls + 1} lần.`;
+const upload = multer({ dest: os.tmpdir(), limits: { fileSize: 200 * 1024 * 1024 } });
 
-            const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-            const result = await model.generateContent(prompt);
-            const newWikiContent = result.response.text();
+app.post('/upload', upload.single('file'), async (req, res) => {
+    try {
+        const { userId, customerHint } = req.body;
+        if (!req.file) return res.status(400).json({ message: "No file" });
 
-            const { error: upsertErr } = await supabase.from('customer_wiki').upsert({
-                customer_phone: customerIdentifier,
-                wiki_content: newWikiContent,
-                total_calls: totalCalls + 1,
-                last_updated: new Date()
-            }, { onConflict: 'customer_phone' });
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        const uploadResponse = await fileManager.uploadFile(req.file.path, { mimeType: req.file.mimetype, displayName: "Media" });
 
-            if (upsertErr) {
-                console.error(`[Customer Wiki] Lỗi DB khi cập nhật khách ${customerIdentifier}:`, upsertErr.message);
-            } else {
-                console.log(`[Customer Wiki] ✅ Đã cập nhật thành công hồ sơ khách: ${customerIdentifier}`);
-            }
-        } catch (e) {
-            console.error("[Customer Wiki] Lỗi trong quá trình cập nhật:", e);
+        const prompt = `Phân tích cuộc gọi y tế, tóm tắt tóm lược, rút ra 3 insight và chấm điểm nhân viên. Trình bày Markdown đẹp mắt.`;
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        const resultStream = await model.generateContentStream([{ fileData: { mimeType: uploadResponse.file.mimeType, fileUri: uploadResponse.file.uri } }, { text: prompt }]);
+
+        let transcriptionText = '';
+        for await (const chunk of resultStream.stream) {
+            const chunkText = chunk.text();
+            transcriptionText += chunkText;
+            res.write(chunkText);
         }
-    }
-    // ------------------------------------
+        res.end();
 
-    // Test API root endpoint
-    app.get('/', (req, res) => {
-        res.status(200).json({ message: 'API is running and ready for testing!' });
-    });
-
-    // User registration endpoint
-    app.post('/register', async (req, res) => {
-        try {
-            const { name, email, password, image } = req.body;
-            if (!name || !email || !password || !image) {
-                return res.status(400).json({ message: 'All fields are required' });
-            }
-
-            const { data: existingUser } = await supabase.from('users').select('*').eq('email', email).single();
-            if (existingUser) return res.status(400).json({ message: 'User already exists' });
-
-            const hashedPassword = await bcrypt.hash(password, 10);
-
-            const { data: newUser, error: insertErr } = await supabase.from('users').insert([{
-                name, email, password: hashedPassword, image, role: 'user'
-            }]).select().single();
-
-            if (insertErr) throw insertErr;
-
-            const token = jwt.sign({ userId: newUser.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-            res.status(201).json({ token, user: { id: newUser.id, name: newUser.name, email: newUser.email, image: newUser.image, role: newUser.role } });
-        } catch (error) {
-            console.error("Error registering user:", error.message);
-            res.status(500).json({ message: 'Error registering user', error: error.message });
-        }
-    });
-
-    // User login endpoint
-    app.post('/login', async (req, res) => {
-        const { email, password } = req.body;
-        try {
-            const { data: user, error: fetchErr } = await supabase.from('users').select('*').eq('email', email).single();
-            if (!user || fetchErr) return res.status(401).json({ message: 'Invalid credentials' });
-
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
-
-            const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-            res.json({ token, user: { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role } });
-        } catch (error) {
-            console.error("Error logging in user:", error.message);
-            res.status(500).json({ message: 'Error logging in user', error: error.message });
-        }
-    });
-
-    // Configure multer for file storage using cross-platform OS temp dir
-    const upload = multer({
-        dest: os.tmpdir(), // Thay vì cứng nhắc '/tmp' gây lỗi trên Windows
-        limits: { fileSize: 200 * 1024 * 1024 } // Set limits to 200 MB
-    });
-
-    // Audio upload and transcription endpoint
-    app.post('/upload', upload.single('file'), async (req, res) => {
-        try {
-            const { userId } = req.body;
-            if (!userId) {
-                return res.status(400).json({ message: "User ID is required." });
-            }
-
-            if (!req.file) {
-                return res.status(400).json({ message: "No file uploaded." });
-            }
-
-            const filePath = req.file.path; // Now pointing to /tmp
-
-            const stats = fs.statSync(filePath);
-            if (stats.size === 0) {
-                if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                }
-                return res.status(400).json({ message: "File is empty." });
-            }
-
-            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-            res.flushHeaders();
-            res.write(' '.repeat(4096));
-            res.write('🔄 Đang phân tích dữ liệu, xin vui lòng đợi trong giây lát...\n\n');
-
-            const keepAliveInterval = setInterval(() => {
-                res.write(' . ');
-            }, 5000);
-            let heartBeatStopped = false;
-
-            try {
-                console.log("Đang upload file lên Gemini Servers...");
-                const uploadResponse = await fileManager.uploadFile(filePath, {
-                    mimeType: req.file.mimetype,
-                    displayName: "Medical Media",
-                });
-
-                let modeInstruction = "Lắng nghe toàn bộ nội dung hội thoại";
-                if (req.file.mimetype.startsWith('image/')) {
-                    modeInstruction = "Quan sát và đọc kỹ các thông tin trong hình ảnh";
-                } else if (req.file.mimetype.startsWith('text/') || req.file.mimetype.includes('pdf') || req.file.mimetype.includes('document')) {
-                    modeInstruction = "Đọc và phân tích toàn bộ nội dung tài liệu";
-                }
-
-                const prompt = `Bạn là hệ thống AI thẩm định Y tế chuyên nghiệp. Quy trình xử lý của bạn:
-1. ${modeInstruction} (Tiếng Việt nếu có).
-2. Tóm tắt nội dung chính của cuộc trao đổi (Summary).
-3. Rút ra 3 Insight quan trọng nhất có thể học hỏi hoặc cải thiện (Insights).
-4. Chấm điểm nhân viên y tế theo 5 tiêu chí (Rõ ràng, Chuyên nghiệp, Thấu cảm, Xử lý vấn đề, Hiệu quả) trên thang 10 điểm.
-
-Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sau:
-
-
-
-📝 **TÓM TẮT (SUMMARY):**
-(Tóm tắt nội dung...)
-
-💡 **3 INSIGHT QUAN TRỌNG:**
-1. ...
-2. ...
-3. ...
-
-⭐ **ĐÁNH GIÁ & CHẤM ĐIỂM (SCORING):**
-- Sự rõ ràng (Clarity): X/10 - Lời bình: ...
-- Tính chuyên nghiệp (Professionalism): Y/10 - Lời bình: ...
-- Sự thấu cảm (Empathy): Z/10 - Lời bình: ...
-- Giải quyết vấn đề (Problem Solving): N/10 - Lời bình: ...
-- Đạt hiệu quả (Efficiency): M/10 - Lời bình: ...
-`;
-
-                const modelName = "gemini-flash-latest"; // Dùng Flash để tăng tốc xử lý transcription
-                console.log(`Đang chờ ${modelName} phân tích và phân rã các lớp dữ liệu PRD...`);
-                const model = genAI.getGenerativeModel({ model: modelName });
-                const resultStream = await model.generateContentStream([
-                    {
-                        fileData: {
-                            mimeType: uploadResponse.file.mimeType,
-                            fileUri: uploadResponse.file.uri
-                        }
-                    },
-                    { text: prompt }
-                ]);
-
-                let transcriptionText = '';
-
-                for await (const chunk of resultStream.stream) {
-                    if (!heartBeatStopped) {
-                        clearInterval(keepAliveInterval);
-                        heartBeatStopped = true;
-                        res.write('\n\n');
-                    }
-                    const chunkText = chunk.text();
-                    transcriptionText += chunkText;
-                    res.write(chunkText); // Stream ra màn hình ngay lập tức để giữ mạng sống
-                }
-                res.end();
-
-                console.log("=== Kế hoạch AI Xong ===", transcriptionText.substring(0, 50) + "...");
-
-                // Xoá file trên cache của hệ thống Gemini giải phóng bộ nhớ
-                try { await fileManager.deleteFile(uploadResponse.file.name); } catch (e) { }
-
-                const audioUrl = "file_not_hosted_by_openai_yet"; // Placeholder vì OpenAI ko tự lưu file
-
-                // Save transcription details to the database (Supabase)
-                const { data: transcriptionData, error: dbError } = await supabase.from('transcriptions').insert([{
-                    audioURL: req.file ? req.file.originalname : audioUrl, // Lưu kèm tên file gốc
-                    transcription: transcriptionText,
-                    status: 'completed',
-                    user_id: userId
-                }]).select().single();
-
-                if (dbError) console.error("Lỗi lưu DB mồ côi:", dbError);
-
-                // ==========================================
-                // LLM WIKI UPDATER - CHẠY NGẦM KHÔNG BLOCK UI
-                // ==========================================
-                if (req.file && req.file.originalname) {
-                    // Tuyến 1: Cập nhật Wiki Nhân viên
-                    const phoneMatch = req.file.originalname.match(/^(\d{10,11})/);
-                    if (phoneMatch) {
-                        const employeePhone = phoneMatch[1];
-                        updateEmployeeWiki(employeePhone, transcriptionText).catch(e =>
-                            console.error("Lỗi ngầm Employee Wiki Updater:", e)
-                        );
-                    }
-                }
-
-                // Tuyến 2: Cập nhật Wiki Khách hàng (Sử dụng Hint từ Frontend)
-                const customerHint = req.body.customerHint;
-                if (customerHint && customerHint.trim() !== '') {
-                    // Nhờ AI tách chính xác tên hoặc SĐT của khách ra làm ID
-                    const extractPrompt = `Dựa vào tin nhắn sau do nhân viên cung cấp: "${customerHint}". Hãy trích xuất một định danh duy nhất của khách hàng (Ưu tiên Lấy Số điện thoại, nếu không có thì lấy chính xác Tên của họ). Chỉ in ra kết quả định danh đó, KHÔNG IN BẤT CỨ CHỮ NÀO KHÁC.`;
-                    genAI.getGenerativeModel({ model: "gemini-flash-latest" }).generateContent(extractPrompt)
-                        .then(r => {
-                            const customerId = r.response.text().trim();
-                            if (customerId) {
-                                updateCustomerWiki(customerId, transcriptionText).catch(e =>
-                                    console.error("Lỗi ngầm Customer Wiki Updater:", e)
-                                );
-                            }
-                        }).catch(console.error);
-                }
-
-            } finally {
-                if (!heartBeatStopped) clearInterval(keepAliveInterval);
-            }
-        } catch (error) {
-            if (!res.headersSent) {
-                res.status(500).json({ message: "Error processing audio", error: error.message || String(error) });
-            } else {
-                res.write(`\n[KHÔNG THỂ DỊCH (STREAM LỖI): ${error.message || String(error)}]\n`);
-                res.end();
-                console.error("Stream bị đứt giữa chừng:", error.message);
-            }
-        } finally {
-            if (req.file && fs.existsSync(req.file.path)) {
-                try {
-                    fs.unlinkSync(req.file.path); // Clean up the uploaded file
-                } catch (e) {
-                    console.error("Cleanup error:", e);
-                }
-            }
-        }
-    });
-
-    // Get all transcriptions for a user
-    app.post('/getall/:id', async (req, res) => {
-        const userId = req.params.id;
-        if (!userId) return res.status(400).json({ message: "User ID is required." });
-
-        try {
-            const { data: user, error: userErr } = await supabase.from('users').select('*').eq('id', userId).single();
-            if (!user || userErr) return res.status(404).json({ message: "User not found." });
-
-            const { data: transcriptions, error: transErr } = await supabase.from('transcriptions').select('*').eq('user_id', userId);
-
-            // Cấu trúc lại kết quả để frontend cũ đọc được id -> _id
-            const mappedTranscriptions = transcriptions ? transcriptions.map(t => ({ ...t, _id: t.id })) : [];
-
-            res.json({ user: { ...user, _id: user.id }, transcriptions: mappedTranscriptions });
-        } catch (error) {
-            console.error("Error fetching user data:", error.message);
-            res.status(500).json({ message: "Internal server error." });
-        }
-    });
-
-    // DELETE endpoint to delete a transcription by ID
-    app.delete('/delete/:id', async (req, res) => {
-        const { id } = req.params;
-        if (!id) {
-            return res.status(400).send({ message: "Transcription ID is required" });
-        }
-
-        try {
-            const { data: transcription, error } = await supabase.from('transcriptions').delete().eq('id', id).select().single();
-            if (!transcription || error) {
-                return res.status(404).send({ message: "Transcription not found or error deleting" });
-            }
-            res.send({ message: "Transcription deleted successfully" });
-        } catch (error) {
-            res.status(500).send({ message: "Error deleting transcription", error });
-        }
-    });
-
-    // Helper API for Agent to read Wiki
-    async function getEmployeeWikiApi(nameOrPhone) {
-        console.log("[AGENT TOOL] Gọi DB lấy wiki cho:", nameOrPhone);
-        const { data, error } = await supabase
-            .from('employee_wiki')
-            .select('*')
-            .or(`employee_phone.ilike.%${nameOrPhone}%,wiki_content.ilike.%${nameOrPhone}%`)
-            .limit(3);
-
-        if (!data || data.length === 0) return "Dữ liệu trống: Không tìm thấy nhân viên mang tên hoặc SĐT: " + nameOrPhone + ". Hãy báo người dùng kiểm tra lại.";
-
-        let resultStr = "";
-        for (let i = 0; i < data.length; i++) {
-            resultStr += `TRÍCH XUẤT TỪ DATABASE_WIKI SĐT ${data[i].employee_phone}:\nLần cập nhật: ${data[i].last_updated}\nTổng số cuộc gọi: ${data[i].total_calls}\n\nNỘI DUNG THEO DÕI NĂNG LỰC:\n${data[i].wiki_content}\n\n---\n`;
-        }
-        return resultStr;
-    }
-
-    const agentTools = {
-        getEmployeeWiki: ({ query }) => getEmployeeWikiApi(query)
-    };
-
-    // ============================================================
-    // CHAT endpoint — hội thoại đa lượt với Gemini (có nhớ context)
-    // Body: { message: string, history: [{role:'user'|'model', content:string}] }
-    // ============================================================
-    app.post('/chat', async (req, res) => {
-        try {
-            const { message, history = [] } = req.body;
-            if (!message) return res.status(400).json({ message: 'Message is required' });
-
-            const model = genAI.getGenerativeModel({
-                model: 'gemini-flash-latest', // Chuyển sang Flash để mượt, chống kẹt Quota
-                systemInstruction: `Bạn là PharmaVoice AI — trợ lý y tế thông minh và MỘT ĐẶC VỤ TÀI BA (AGENT).
-Quy tắc trả lời BẮT BUỘC:
-1. Bạn CÓ QUYỀN TRUY CẬP HỆ THỐNG WIKI. Nếu người dùng hỏi về năng lực, thành tích, đánh giá, hoặc lịch sử của 1 nhân viên cụ thể, BẮT BUỘC dùng Tool "getEmployeeWiki" để tra cứu thông tin ngầm trước khi trả lời.
-2. LUÔN NGẮN GỌN & HIỆU QUẢ: Đi thẳng vào vấn đề, tuyệt đối KHÔNG viết diễn giải dài dòng.
-3. DỄ NHÌN & ĐẸP MẮT: LUÔN trình bày dưới dạng Bullet points, in đậm các keyword.
-4. TỰ TIN: Đừng bao giờ nói "Tôi không có quyền", bây giờ bạn đã được ban quyền truy cập.`,
-                tools: [{
-                    functionDeclarations: [
-                        {
-                            name: "getEmployeeWiki",
-                            description: "Tra cứu hồ sơ theo dõi năng lực (Wiki) của nhân viên thông qua Tên hoặc Số điện thoại. Dùng khi Boss hỏi về một nhân viên cụ thể.",
-                            parameters: {
-                                type: "OBJECT",
-                                properties: {
-                                    query: {
-                                        type: "STRING",
-                                        description: "Tên HOẶC SĐT của nhân viên (Ví dụ: Hải, Tiến sĩ Hải, 0352...)"
-                                    }
-                                },
-                                required: ["query"]
-                            }
-                        }
-                    ]
-                }]
-            }); // End of model configuration
-
-            // Normalize history to strictly alternate user/model and start with user
-            const normalizedHistory = [];
-            let currentRole = null;
-            let currentText = [];
-
-            for (const h of history) {
-                const role = h.role === 'assistant' ? 'model' : 'user';
-                const text = h.content;
-                if (!text) continue;
-
-                if (role === currentRole) {
-                    currentText.push(text);
-                } else {
-                    if (currentRole !== null) {
-                        // Skip leading 'model' messages
-                        if (!(normalizedHistory.length === 0 && currentRole === 'model')) {
-                            normalizedHistory.push({ role: currentRole, parts: [{ text: currentText.join('\n\n') }] });
-                        }
-                    }
-                    currentRole = role;
-                    currentText = [text];
-                }
-            }
-            if (currentRole !== null) {
-                if (!(normalizedHistory.length === 0 && currentRole === 'model')) {
-                    normalizedHistory.push({ role: currentRole, parts: [{ text: currentText.join('\n\n') }] });
-                }
-            }
-
-            // Must end with 'model' if we are about to send a 'user' message, 
-            // wait, the API allows sending 'user' message if history ends with 'model' or is empty.
-            // But if normalizedHistory ends with 'user', we must pop it or combine it with the new message!
-            let finalMessage = message;
-            if (normalizedHistory.length > 0 && normalizedHistory[normalizedHistory.length - 1].role === 'user') {
-                const popped = normalizedHistory.pop();
-                finalMessage = popped.parts[0].text + '\n\n' + message;
-            }
-
-            const chat = model.startChat({ history: normalizedHistory });
-            let result = await chat.sendMessage(finalMessage);
-
-            // Vòng lặp Agent: Kiểm tra xem AI có muốn lấy rổ đồ nghề ra không
-            const callArgs = result.response.functionCalls();
-            if (callArgs && callArgs.length > 0) {
-                const call = callArgs[0];
-                if (call.name === 'getEmployeeWiki') {
-                    console.log(`[AGENT] Tham chiếu DB cho tool ${call.name} với tham số:`, call.args);
-
-                    // Thực thi lệnh moi Database
-                    const apiResponse = await agentTools[call.name](call.args);
-                    console.log(`[AGENT] Đã kéo xong Database, trả mồi về cho LLM...`);
-
-                    // Ném kết quả mồi lại cho AI tiêu hóa và lên văn
-                    result = await chat.sendMessage([{
-                        functionResponse: {
-                            name: call.name,
-                            response: { content: apiResponse }
-                        }
-                    }]);
-                }
-            }
-
-            const responseText = result.response.text();
-
-            res.json({ reply: responseText });
-        } catch (error) {
-            console.error('Chat error:', error.message);
-            res.status(500).json({ message: 'Lỗi khi chat với AI', error: error.message });
-        }
-    });
-    
-    // Standalone endpoint to update customer wiki (for post-upload form)
-    app.post('/update-customer-wiki', async (req, res) => {
-        const { identifier, transcription } = req.body;
-        if (!identifier || !transcription) return res.status(400).json({ message: "Missing data" });
+        await supabase.from('transcriptions').insert([{ audioURL: req.file.originalname, transcription: transcriptionText, status: 'completed', user_id: userId }]);
         
-        try {
-            await updateCustomerWiki(identifier, transcription);
-            res.json({ message: "Cập nhật thành công!" });
-        } catch (error) {
-            res.status(500).json({ message: "Lỗi", error: error.message });
+        // Background Wiki Updates
+        const phoneMatch = req.file.originalname.match(/^(\d{10,11})/);
+        if (phoneMatch) updateEmployeeWiki(phoneMatch[1], transcriptionText);
+        if (customerHint) {
+            const r = await genAI.getGenerativeModel({ model: "gemini-flash-latest" }).generateContent(`Trích xuất ID khách hàng từ: "${customerHint}". Chỉ in kết quả.`);
+            updateCustomerWiki(r.response.text().trim(), transcriptionText);
         }
-    });
+    } catch (error) { res.status(500).end(error.message); }
+});
 
-    // Endpoint to fetch all customers for the search dropdown
-    app.get('/customers', async (req, res) => {
-        try {
-            // Lấy danh sách ID (Phone/Name) từ wiki để nhân viên chọn lại cho nhanh
-            const { data, error } = await supabase.from('customer_wiki').select('customer_phone, last_updated').order('last_updated', { ascending: false });
-            if (error) throw error;
-            res.json(data);
-        } catch (error) {
-            res.status(500).json({ message: "Lỗi", error: error.message });
+app.post('/getall/:id', async (req, res) => {
+    try {
+        const { data: transcriptions } = await supabase.from('transcriptions').select('*').eq('user_id', req.params.id);
+        res.json({ transcriptions: transcriptions.map(t => ({ ...t, _id: t.id })) });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// --- AGENT TOOLS ---
+async function getEmployeeWikiApi(query) {
+    const { data } = await supabase.from('employee_wiki').select('*').or(`employee_phone.ilike.%${query}%,wiki_content.ilike.%${query}%`).limit(2);
+    return data && data.length > 0 ? JSON.stringify(data) : "Không tìm thấy NV.";
+}
+
+async function getCustomerWikiApi(query) {
+    const { data } = await supabase.from('customer_wiki').select('*').or(`customer_phone.ilike.%${query}%,wiki_content.ilike.%${query}%`).limit(2);
+    return data && data.length > 0 ? JSON.stringify(data) : "Không tìm thấy KH.";
+}
+
+const agentTools = {
+    getEmployeeWiki: ({ query }) => getEmployeeWikiApi(query),
+    getCustomerWiki: ({ query }) => getCustomerWikiApi(query)
+};
+
+// --- CHAT ENDPOINT ---
+app.post('/chat', async (req, res) => {
+    try {
+        const { message, history = [] } = req.body;
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-flash-latest',
+            systemInstruction: `Bạn là PharmaVoice AI. Dùng Tool "getEmployeeWiki" nếu hỏi về NV, "getCustomerWiki" nếu hỏi về KH. Trả lời Markdown, ngắn gọn.`,
+            tools: [{ functionDeclarations: [
+                { name: "getEmployeeWiki", description: "Tra cứu wiki NV", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } },
+                { name: "getCustomerWiki", description: "Tra cứu wiki KH", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } }
+            ]}]
+        });
+
+        const chat = model.startChat({ history: history.map(h => ({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] })) });
+        let result = await chat.sendMessage(message);
+
+        const call = result.response.functionCalls()?.[0];
+        if (call && agentTools[call.name]) {
+            const apiRes = await agentTools[call.name](call.args);
+            result = await chat.sendMessage([{ functionResponse: { name: call.name, response: { content: apiRes } } }]);
         }
-    });
 
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+        res.json({ reply: result.response.text() });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/update-customer-wiki', async (req, res) => {
+    const { identifier, transcription } = req.body;
+    await updateCustomerWiki(identifier, transcription);
+    res.json({ message: "OK" });
+});
+
+app.get('/customers', async (req, res) => {
+    const { data } = await supabase.from('customer_wiki').select('customer_phone, last_updated').order('last_updated', { ascending: false });
+    res.json(data);
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server started on ${PORT}`));
