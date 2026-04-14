@@ -8,33 +8,17 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ── Render AI markdown-ish text ──────────────────────────────
 const renderAIText = (text) => {
-    if (!text) return null;
     const lines = text.split('\n');
     return lines.map((line, i) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <br key={i} />;
-        
-        // Render bold text **abc**
+        if (!line.trim()) return <br key={i} />;
         const parts = line.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
             /^\*\*[^*]+\*\*$/.test(part) ? <strong key={j}>{part.slice(2, -2)}</strong> : part
         );
-
-        // Support bullet points: *, -, •
-        if (/^[\*\-•]\s/.test(trimmed)) {
-            return (
-                <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px', paddingLeft: '4px' }}>
-                    <span style={{ color: '#818cf8', fontWeight: 'bold', flexShrink: 0 }}>•</span>
-                    <span style={{ fontSize: '14.5px', lineHeight: '1.5' }}>{parts}</span>
-                </div>
-            );
-        }
-
-        // Support numbered lists: 1., 2.
-        if (/^\d+\./.test(trimmed)) {
-            return <div key={i} style={{ marginBottom: '8px', paddingLeft: '4px', fontSize: '14.5px', lineHeight: '1.5' }}>{parts}</div>;
-        }
-
-        return <div key={i} style={{ marginBottom: '6px', fontSize: '14.5px', lineHeight: '1.5' }}>{parts}</div>;
+        if (/^[-•]\s/.test(line.trim()))
+            return <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}><span style={{ color: '#818cf8', flexShrink: 0 }}>•</span><span>{parts}</span></div>;
+        if (/^\d+\./.test(line.trim()))
+            return <div key={i} style={{ marginBottom: '6px' }}>{parts}</div>;
+        return <div key={i} style={{ marginBottom: '4px' }}>{parts}</div>;
     });
 };
 
@@ -255,9 +239,8 @@ const AudioRecorder = () => {
             return;
         }
 
-        const history = (sessionDataRef.current[sid]?.messages || [])
-            .filter(m => !m.isFile && !m.isCustomerForm && m.content)
-            .map(m => ({ role: m.role, content: m.content }));
+        const history = (sessionDataRef.current[sid]?.messages || messages)
+            .filter(m => !m.isFile).map(m => ({ role: m.role, content: m.content }));
         const userMsg = { role: 'user', content: text };
         setSessionData(prev => {
             const temp = prev[sid] || emptySession();
@@ -269,8 +252,7 @@ const AudioRecorder = () => {
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
         try {
             const res = await axios.post(`${API_URL}/chat`, { message: text, history });
-            const reply = res.data?.reply || "⚠️ AI đang bận xử lý dữ liệu khác, bạn vui lòng hỏi lại câu này sau vài giây nhé!";
-            const aiMsg = { role: 'assistant', content: reply };
+            const aiMsg = { role: 'assistant', content: res.data.reply };
             setSessionData(prev => {
                 const temp = prev[sid] || emptySession();
                 const updated = [...temp.messages, aiMsg];
