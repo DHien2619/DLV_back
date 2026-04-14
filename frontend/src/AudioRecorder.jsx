@@ -8,17 +8,33 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ── Render AI markdown-ish text ──────────────────────────────
 const renderAIText = (text) => {
+    if (!text) return null;
     const lines = text.split('\n');
     return lines.map((line, i) => {
-        if (!line.trim()) return <br key={i} />;
+        const trimmed = line.trim();
+        if (!trimmed) return <br key={i} />;
+        
+        // Render bold text **abc**
         const parts = line.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
             /^\*\*[^*]+\*\*$/.test(part) ? <strong key={j}>{part.slice(2, -2)}</strong> : part
         );
-        if (/^[-•]\s/.test(line.trim()))
-            return <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}><span style={{ color: '#818cf8', flexShrink: 0 }}>•</span><span>{parts}</span></div>;
-        if (/^\d+\./.test(line.trim()))
-            return <div key={i} style={{ marginBottom: '6px' }}>{parts}</div>;
-        return <div key={i} style={{ marginBottom: '4px' }}>{parts}</div>;
+
+        // Support bullet points: *, -, •
+        if (/^[\*\-•]\s/.test(trimmed)) {
+            return (
+                <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px', paddingLeft: '4px' }}>
+                    <span style={{ color: '#818cf8', fontWeight: 'bold', flexShrink: 0 }}>•</span>
+                    <span style={{ fontSize: '14.5px', lineHeight: '1.5' }}>{parts}</span>
+                </div>
+            );
+        }
+
+        // Support numbered lists: 1., 2.
+        if (/^\d+\./.test(trimmed)) {
+            return <div key={i} style={{ marginBottom: '8px', paddingLeft: '4px', fontSize: '14.5px', lineHeight: '1.5' }}>{parts}</div>;
+        }
+
+        return <div key={i} style={{ marginBottom: '6px', fontSize: '14.5px', lineHeight: '1.5' }}>{parts}</div>;
     });
 };
 
