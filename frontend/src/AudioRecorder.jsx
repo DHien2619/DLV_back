@@ -61,8 +61,9 @@ const AudioRecorder = () => {
     
     // ── Grouped Sessions ──────────────────────────────────────
     const groupedChats = React.useMemo(() => {
-        const groups = { today: [], last7Days: [], older: [] };
+        const groups = { today: [], yesterday: [], last7Days: [], older: [] };
         const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         const searchLower = searchQuery.toLowerCase();
 
         chatSessions.forEach(session => {
@@ -78,17 +79,14 @@ const AudioRecorder = () => {
                 return;
             }
 
-            const date = new Date(timestamp);
-            const diffTime = Math.abs(now - date);
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const sessionDate = new Date(timestamp);
+            const sessionDayStart = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate()).getTime();
+            const diffDays = Math.round((todayStart - sessionDayStart) / (1000 * 60 * 60 * 24));
 
-            if (diffDays === 0 && date.getDate() === now.getDate()) {
-                groups.today.push(session);
-            } else if (diffDays <= 7) {
-                groups.last7Days.push(session);
-            } else {
-                groups.older.push(session);
-            }
+            if (diffDays === 0) groups.today.push(session);
+            else if (diffDays === 1) groups.yesterday.push(session);
+            else if (diffDays <= 7) groups.last7Days.push(session);
+            else groups.older.push(session);
         });
         return groups;
     }, [chatSessions, searchQuery]);
@@ -289,19 +287,22 @@ const AudioRecorder = () => {
             });
             const results = await Promise.all(uploadPromises);
 
-            // Gộp transcription
+            // Gộp transcription (đã được AI đánh giá sẵn từ backend)
             const combined = results.map((r, i) =>
-                `## File ${i + 1}: ${r.name}\n${r.transcription}`
+                `**File ${i + 1}: ${r.name}**\n\n${r.transcription}`
             ).join('\n\n---\n\n');
 
-            patchSession(sid, { loadingLabel: 'Đang phân tích nội dung...' });
-            const history = (sessionData[sid]?.messages || []).filter(m => !m.isFile).map(m => ({ role: m.role, content: m.content }));
-            const prompt = userPrompt
-                ? `Tôi vừa upload ${files.length} file âm thanh. Dưới đây là nội dung phiên dịch từng file:\n\n${combined}\n\nYêu cầu của tôi: ${userPrompt}`
-                : `Tôi vừa upload ${files.length} file âm thanh. Dưới đây là nội dung phiên dịch từng file:\n\n${combined}\n\nHãy phân tích và tóm tắt nội dung.`;
+            let finalReply = combined;
 
-            const chatRes = await axios.post(`${API_URL}/chat`, { message: prompt, history });
-            const aiMsg = { role: 'assistant', content: chatRes.data.reply };
+            if (userPrompt) {
+                patchSession(sid, { loadingLabel: 'Đang trả lời câu hỏi của bạn về file...' });
+                const history = (sessionData[sid]?.messages || []).filter(m => !m.isFile).map(m => ({ role: m.role, content: m.content }));
+                const prompt = `Tôi vừa upload ${files.length} file đính kèm. Dưới đây là nội dung phiên dịch từng file:\n\n${combined}\n\nYêu cầu của tôi: ${userPrompt}`;
+                const chatRes = await axios.post(`${API_URL}/chat`, { message: prompt, history });
+                finalReply = chatRes.data.reply;
+            }
+
+            const aiMsg = { role: 'assistant', content: finalReply };
             setSessionData(prev => {
                 const temp = prev[sid] || emptySession();
                 const updated = [...temp.messages, aiMsg];
@@ -311,7 +312,9 @@ const AudioRecorder = () => {
             toast.success(`✅ Đã phân tích ${files.length} file!`);
         } catch (err) {
             const detail = err.response?.data?.error ? ` (${err.response.data.error})` : '';
-            const msg = err.code === 'ECONNABORTED' ? '⏳ Quá thời gian chờ. Thử lại!' : `❌ Lỗi: ${err.response?.data?.message || 'Không thể phân tích file.'}${detail}`;
+            const origMsg = err.response?.data?.message || err.message || 'Không thể phân tích file.';
+            const msg = err.code === 'ECONNABORTED' ? '⏳ Quá thời gian chờ mạng. Thử lại!' : `❌ Lỗi: ${origMsg}${detail}`;
+            
             setSessionData(prev => {
                 const temp = prev[sid] || emptySession();
                 return { ...prev, [sid]: { ...temp, messages: [...temp.messages, { role: 'assistant', content: msg }], loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
@@ -609,11 +612,11 @@ const AudioRecorder = () => {
                                 <div className="no-history">Chưa có lịch sử</div>
                             ) : (
                                 <>
-                                    {['today', 'last7Days', 'older'].map(groupKey => {
+                                    {['today', 'yesterday', 'last7Days', 'older'].map(groupKey => {
                                         const groupSessions = groupedChats[groupKey];
                                         if (groupSessions.length === 0) return null;
 
-                                        const groupTitle = groupKey === 'today' ? 'Today' : groupKey === 'last7Days' ? '7 Days Ago' : 'Older';
+                                        const groupTitle = groupKey === 'today' ? 'HÔM NAY' : groupKey === 'yesterday' ? 'HÔM QUA' : groupKey === 'last7Days' ? '7 NGÀY QUA' : 'CŨ HƠN';
 
                                         return (
                                             <div key={groupKey} className="history-group">
