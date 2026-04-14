@@ -222,8 +222,13 @@ app.post('/chat', async (req, res) => {
                 const apiRes = await agentTools[call.name](call.args);
                 console.log(`[CHAT AGENT] Kết quả DB: ${apiRes.substring(0, 50)}...`);
                 
-                // Gửi kết quả tool lại cho AI
+                // Gửi kết quả tool lại cho AI và yêu cầu trả lời ngay
                 result = await chat.sendMessage([{ functionResponse: { name: call.name, response: { content: apiRes } } }]);
+                
+                // Nếu sau khi gửi kết quả mà AI vẫn không trả lời bằng text, ta ép nó trả lời
+                if (!result.response.text()) {
+                    result = await chat.sendMessage("Dựa trên dữ liệu bạn vừa tìm thấy, hãy trả lời câu hỏi của tôi một cách chi tiết.");
+                }
             } catch (toolErr) {
                 console.error('[CHAT AGENT] Lỗi khi chạy Tool:', toolErr);
             }
