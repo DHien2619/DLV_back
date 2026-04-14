@@ -38,6 +38,64 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+// --- LLM WIKI UPDATER FUNCTION ---
+async function updateEmployeeWiki(employeePhone, newTranscriptionText) {
+    try {
+        console.log(`[LLM Wiki] Bắt đầu cập nhật wiki cho SĐT: ${employeePhone}`);
+        
+        // 1. Fetch existing wiki
+        const { data: existingWiki, error: fetchErr } = await supabase
+            .from('employee_wiki')
+            .select('*')
+            .eq('employee_phone', employeePhone)
+            .single();
+            
+        let oldWikiContent = existingWiki ? existingWiki.wiki_content : "Chưa có thông tin về nhân viên này trước đây.";
+        let totalCalls = existingWiki ? existingWiki.total_calls : 0;
+        
+        // 2. Build Prompt to summarize and update wiki
+        const prompt = `Bạn là hệ thống Kho Trí Thức LLM Wiki của PharmaVoice. Nhiệm vụ của bạn là CẬP NHẬT hồ sơ của nhân viên y tế / telesale dựa trên các cuộc gọi.
+
+Đây là HỒ SƠ HIỆN TẠI của nhân viên ${employeePhone}:
+---
+${oldWikiContent}
+---
+
+Đây là ĐÁNH GIÁ MỚI NHẤT từ cuộc gọi vừa xong:
+---
+${newTranscriptionText}
+---
+
+Hãy tổng hợp 2 thông tin trên để VIẾT LẠI một "Trang Wiki Hồ Sơ Nhân Viên" hoàn chỉnh, bằng ngôn ngữ Markdown chuyên nghiệp.
+Yêu Cầu:
+- Luôn giữ lại và cập nhật các phần: Điểm mạnh, điểm yếu, xu hướng nghề nghiệp, các insight cốt lõi.
+- Đừng xóa các thông tin quan trọng cũ, hãy TÍCH HỢP chúng lại một cách mạch lạc.
+- Tính đến hiện tại, tổng số cuộc gọi là: ${totalCalls + 1}. Hãy cập nhật con số này vào Wiki.
+- Nếu cuộc gọi mới có điểm số (1-10), hãy tính toán / ước lượng lại sự thay đổi hiệu suất một cách tự nhiên.`;
+
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }); 
+        const result = await model.generateContent(prompt);
+        const newWikiContent = result.response.text();
+        
+        // 3. Upsert back to database
+        const { error: upsertErr } = await supabase.from('employee_wiki').upsert({
+            employee_phone: employeePhone,
+            wiki_content: newWikiContent,
+            total_calls: totalCalls + 1,
+            last_updated: new Date()
+        }, { onConflict: 'employee_phone' });
+        
+        if (upsertErr) {
+            console.error(`[LLM Wiki] Lỗi DB khi cập nhật SĐT ${employeePhone}:`, upsertErr.message);
+        } else {
+            console.log(`[LLM Wiki] ✅ Đã cập nhật thành công hồ sơ SĐT: ${employeePhone}`);
+        }
+    } catch (e) {
+        console.error("[LLM Wiki] Lỗi trong quá trình cập nhật:", e);
+    }
+}
+// ------------------------------------
+
 // Test API root endpoint
 app.get('/', (req, res) => {
     res.status(200).json({ message: 'API is running and ready for testing!' });
@@ -202,13 +260,29 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
 
             // Save transcription details to the database (Supabase)
             const { data: transcriptionData, error: dbError } = await supabase.from('transcriptions').insert([{
-                audioURL: audioUrl,
+                audioURL: req.file ? req.file.originalname : audioUrl, // Lưu kèm tên file gốc
                 transcription: transcriptionText,
                 status: 'completed',
                 user_id: userId
             }]).select().single();
 
             if (dbError) console.error("Lỗi lưu DB mồ côi:", dbError);
+
+            // ==========================================
+            // LLM WIKI UPDATER - CHẠY NGẦM KHÔNG BLOCK UI
+            // ==========================================
+            if (req.file && req.file.originalname) {
+                // Trích xuất SĐT từ tên file (dành cho format 09xxxxxxxx_...)
+                const phoneMatch = req.file.originalname.match(/^(\d{10,11})/);
+                if (phoneMatch) {
+                    const employeePhone = phoneMatch[1];
+                    // Chạy hàm cập nhật ngầm
+                    updateEmployeeWiki(employeePhone, transcriptionText).catch(e => 
+                        console.error("Lỗi ngầm Wiki Updater:", e)
+                    );
+                }
+            }
+
         } finally {
             if (!heartBeatStopped) clearInterval(keepAliveInterval);
         }
