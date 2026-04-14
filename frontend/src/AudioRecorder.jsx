@@ -278,6 +278,7 @@ const AudioRecorder = () => {
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('userId', userId);
+                formData.append('customerHint', userPrompt || ''); // Gửi Hint chứa SĐT hoặc Tên Khách Hàng xuống Backend
                 return axios.post(`${API_URL}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000 })
                     .then(res => ({ name: file.name, transcription: res.data.transcription || (typeof res.data === 'string' ? res.data : '') }))
                     .catch((err) => {
