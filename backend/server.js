@@ -108,6 +108,8 @@ async function updateCustomerWiki(customerIdentifier, newTranscriptionText) {
 
         const prompt = `Bạn là hệ thống Kho Trí Thức LLM Wiki của PharmaVoice. Nhiệm vụ của bạn là CẬP NHẬT HỒ SƠ Y TẾ / BỆNH LÝ của KHÁCH HÀNG dựa trên các cuộc gọi.
 
+QUAN TRỌNG: Tổng số lần tương tác CHÍNH THỨC theo hệ thống là ${totalCalls + 1} lần. LUÔN dùng con số này, KHÔNG dùng con số từ nội dung ghi âm.
+
 Đây là HỒ SƠ HIỆN TẠI của khách hàng [${customerIdentifier}]:
 ---
 ${oldWikiContent}
@@ -123,7 +125,7 @@ Hãy rà soát HỒ SƠ HIỆN TẠI và THÔNG TIN MỚI, sau đó VIẾT LẠI
 - Ghi nhận Thông tin y tế (Chỉ số huyết áp, bệnh lý, triệu chứng...).
 - Lịch sử mua sản phẩm (Đã mua gì, lúc nào).
 - Ghi chú nhắc nhở chăm sóc (Ví dụ: Khách nhắc tuần sau giao, dặn dò uống thuốc...).
-- Tính đến nay, khách đã tương tác ${totalCalls + 1} lần.`;
+- Tổng số lần tương tác: **${totalCalls + 1} lần** (theo hệ thống — KHÔNG thay đổi con số này).`;
 
         const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
         const result = await model.generateContent(prompt);
