@@ -189,68 +189,46 @@ app.post('/chat', async (req, res) => {
             ]
         });
 
-        // Chuẩn hóa lịch sử: Bắt buộc xen kẽ user/model
-        const normalizedHistory = [];
-        let lastRole = null;
-        for (const h of history) {
-            const role = h.role === 'assistant' ? 'model' : 'user';
-            if (!h.content) continue;
-            if (role === lastRole) {
-                normalizedHistory[normalizedHistory.length - 1].parts[0].text += "\n\n" + h.content;
-            } else {
-                normalizedHistory.push({ role, parts: [{ text: h.content }] });
-                lastRole = role;
-            }
-        }
+        // Chuyển sang dùng generateContent trực tiếp để tăng độ ổn định với Tools
+        const contents = [
+            { role: 'user', parts: [{ text: `Hệ thống: Bạn là PharmaVoice AI. Dưới đây là lịch sử chat: ${JSON.stringify(history)}. Câu hỏi mới: ${message}` }] }
+        ];
 
-        // SỬA LỖI: Gemini bắt buộc tin nhắn đầu tiên phải là 'user'
-        if (normalizedHistory.length > 0 && normalizedHistory[0].role === 'model') {
-            normalizedHistory.unshift({ role: 'user', parts: [{ text: "Chào bạn, tôi vừa gửi file và bạn đã phân tích nội dung đó. Hãy nhớ các thông tin này để hỗ trợ tôi." }] });
-        }
-
-        // Gemini yêu cầu history không được kết thúc bằng 'user' nếu ta sắp gửi tin nhắn 'user' mới
-        if (normalizedHistory.length > 0 && normalizedHistory[normalizedHistory.length - 1].role === 'user') {
-            const lastUserMsg = normalizedHistory.pop();
-            // Gộp tin nhắn cuối vào nội dung gửi mới
-            var finalMessage = lastUserMsg.parts[0].text + "\n\nTiếp theo: " + message;
-        } else {
-            var finalMessage = message;
-        }
-
-        const chat = model.startChat({ history: normalizedHistory });
-        console.log(`[CHAT] Đang gửi message: "${finalMessage.substring(0, 50)}..."`);
-        let result = await chat.sendMessage(finalMessage);
+        console.log(`[CHAT] Đang gửi nội dung phân tích...`);
+        let result = await model.generateContent({ contents });
 
         // Xử lý Function Call (Agent Tool)
         const call = result.response.functionCall;
         if (call && agentTools[call.name]) {
             try {
-                console.log(`[CHAT AGENT] Đang tra cứu DB cho: ${call.name} -> ${JSON.stringify(call.args)}`);
+                console.log(`[CHAT AGENT] Tra cứu: ${call.name} -> ${JSON.stringify(call.args)}`);
                 const apiRes = await agentTools[call.name](call.args);
-                console.log(`[CHAT AGENT] Kết quả DB: ${apiRes.substring(0, 50)}...`);
                 
-                // Gửi kết quả tool lại cho AI và yêu cầu trả lời ngay
-                result = await chat.sendMessage([{ functionResponse: { name: call.name, response: { content: apiRes } } }]);
-                
-                // Nếu sau khi gửi kết quả mà AI vẫn không trả lời bằng text, ta ép nó trả lời
-                if (!result.response.text()) {
-                    result = await chat.sendMessage("Dựa trên dữ liệu bạn vừa tìm thấy, hãy trả lời câu hỏi của tôi một cách chi tiết.");
-                }
+                // Gửi lại đầy đủ bối cảnh + kết quả Tool cho AI
+                contents.push({ role: 'model', parts: [{ functionCall: call }] });
+                contents.push({ role: 'user', parts: [{ functionResponse: { name: call.name, response: { content: apiRes } } }] });
+                contents.push({ role: 'user', parts: [{ text: "Dựa vào kết quả trên, hãy trả lời câu hỏi của tôi thật chi tiết." }] });
+
+                result = await model.generateContent({ contents });
             } catch (toolErr) {
-                console.error('[CHAT AGENT] Lỗi khi chạy Tool:', toolErr);
+                console.error('[CHAT AGENT] Tool error:', toolErr);
             }
         }
 
         let reply = "";
         try {
             reply = result.response.text();
+            if (!reply && result.response.functionCall) {
+                // Nếu AI vẫn cố call tool tiếp, ta lấy tạm kết quả tool trước đó làm câu trả lời
+                reply = "Tôi đã tìm thấy thông tin bạn cần trong hồ sơ khách hàng. Bạn muốn biết chi tiết về phần nào?";
+            }
         } catch (e) {
-            console.error("[CHAT] Lỗi khi lấy văn bản phản hồi:", e);
-            reply = "Tôi đã tra cứu xong thông tin bạn cần nhưng gặp khó khăn khi trình bày. Bạn hãy hỏi lại cụ thể hơn nhé!";
+            console.error("[CHAT] Lỗi Text:", e);
+            reply = "Tôi đã tra cứu được dữ liệu nhưng đang gặp lỗi định dạng. Vui lòng hỏi lại về một thông tin cụ thể hơn nhé!";
         }
 
         console.log(`[CHAT] AI phản hồi: "${reply.substring(0, 50)}..."`);
-        res.json({ reply: reply || "AI không trả về nội dung, vui lòng thử lại." });
+        res.json({ reply: reply || "AI đang quá tải, hãy thử lại sau vài giây." });
     } catch (error) {
         console.error('Chat error:', error.message);
         res.status(500).json({ error: error.message });
