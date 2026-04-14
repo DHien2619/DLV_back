@@ -155,8 +155,27 @@ async function getEmployeeWikiApi(query) {
 }
 
 async function getCustomerWikiApi(query) {
-    const { data } = await supabase.from('customer_wiki').select('*').or(`customer_phone.ilike.%${query}%,wiki_content.ilike.%${query}%`).limit(2);
-    return data && data.length > 0 ? JSON.stringify(data) : "Không tìm thấy KH.";
+    console.log(`[DB SEARCH] Đang tìm khách hàng cho từ khóa: "${query}"`);
+    const cleanQuery = query.trim();
+    // Tìm kiếm mờ (ilike) trên cả nội dung wiki và cột customer_phone (vốn đang chứa tên)
+    const { data, error } = await supabase
+        .from('customer_wiki')
+        .select('*')
+        .or(`customer_phone.ilike.%${cleanQuery}%,wiki_content.ilike.%${cleanQuery}%`)
+        .order('updated_at', { ascending: false })
+        .limit(3);
+
+    if (error) {
+        console.error('[DB SEARCH] Lỗi Supabase:', error.message);
+        return "Lỗi truy cập Database.";
+    }
+
+    if (!data || data.length === 0) {
+        return `Không tìm thấy thông tin nào cho từ khóa "${cleanQuery}". Hãy thử tìm kiếm bằng tên khác hoặc số điện thoại.`;
+    }
+
+    console.log(`[DB SEARCH] Tìm thấy ${data.length} kết quả.`);
+    return JSON.stringify(data);
 }
 
 const agentTools = {
