@@ -168,26 +168,58 @@ const agentTools = {
 app.post('/chat', async (req, res) => {
     try {
         const { message, history = [] } = req.body;
+        if (!message) return res.status(400).json({ message: 'Message is required' });
+
         const model = genAI.getGenerativeModel({
             model: 'gemini-flash-latest',
-            systemInstruction: `Bạn là PharmaVoice AI. Dùng Tool "getEmployeeWiki" nếu hỏi về NV, "getCustomerWiki" nếu hỏi về KH. Trả lời Markdown, ngắn gọn.`,
+            systemInstruction: `Bạn là PharmaVoice AI. Bạn có quyền tra cứu vĩnh cửu. 
+            - Nếu hỏi nhân viên: dùng getEmployeeWiki.
+            - Nếu hỏi khách hàng: dùng getCustomerWiki.
+            Hãy dùng Tool ngầm TRƯỚC khi trả lời Boss. Trình bày Markdown cực kỳ ngắn gọn, chuyên nghiệp.`,
             tools: [{ functionDeclarations: [
                 { name: "getEmployeeWiki", description: "Tra cứu wiki NV", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } },
-                { name: "getCustomerWiki", description: "Tra cứu wiki KH", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } }
+                { name: "getCustomerWiki", description: "Tra cứu wiki KH (Bệnh lý, lịch sử mua hàng, tương tác)", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } }
             ]}]
         });
 
-        const chat = model.startChat({ history: history.map(h => ({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] })) });
-        let result = await chat.sendMessage(message);
+        // Chuẩn hóa lịch sử: Bắt buộc xen kẽ user/model
+        const normalizedHistory = [];
+        let lastRole = null;
+        for (const h of history) {
+            const role = h.role === 'assistant' ? 'model' : 'user';
+            if (!h.content) continue;
+            if (role === lastRole) {
+                normalizedHistory[normalizedHistory.length - 1].parts[0].text += "\n\n" + h.content;
+            } else {
+                normalizedHistory.push({ role, parts: [{ text: h.content }] });
+                lastRole = role;
+            }
+        }
+
+        // Gemini yêu cầu history không được kết thúc bằng 'user' nếu ta sắp gửi tin nhắn 'user' mới
+        if (normalizedHistory.length > 0 && normalizedHistory[normalizedHistory.length - 1].role === 'user') {
+            const lastUserMsg = normalizedHistory.pop();
+            // Gộp tin nhắn cuối vào nội dung gửi mới
+            var finalMessage = lastUserMsg.parts[0].text + "\n\nTiếp theo: " + message;
+        } else {
+            var finalMessage = message;
+        }
+
+        const chat = model.startChat({ history: normalizedHistory });
+        let result = await chat.sendMessage(finalMessage);
 
         const call = result.response.functionCalls()?.[0];
         if (call && agentTools[call.name]) {
+            console.log(`[CHAT AGENT] Gọi tool: ${call.name}`);
             const apiRes = await agentTools[call.name](call.args);
             result = await chat.sendMessage([{ functionResponse: { name: call.name, response: { content: apiRes } } }]);
         }
 
         res.json({ reply: result.response.text() });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) {
+        console.error('Chat error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/update-customer-wiki', async (req, res) => {
