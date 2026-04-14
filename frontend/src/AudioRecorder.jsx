@@ -255,8 +255,9 @@ const AudioRecorder = () => {
             return;
         }
 
-        const history = (sessionDataRef.current[sid]?.messages || messages)
-            .filter(m => !m.isFile).map(m => ({ role: m.role, content: m.content }));
+        const history = (sessionDataRef.current[sid]?.messages || [])
+            .filter(m => !m.isFile && !m.isCustomerForm && m.content)
+            .map(m => ({ role: m.role, content: m.content }));
         const userMsg = { role: 'user', content: text };
         setSessionData(prev => {
             const temp = prev[sid] || emptySession();

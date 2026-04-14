@@ -206,16 +206,20 @@ app.post('/chat', async (req, res) => {
         }
 
         const chat = model.startChat({ history: normalizedHistory });
+        console.log(`[CHAT] Đang gửi message: "${finalMessage.substring(0, 50)}..."`);
         let result = await chat.sendMessage(finalMessage);
 
         const call = result.response.functionCalls()?.[0];
         if (call && agentTools[call.name]) {
-            console.log(`[CHAT AGENT] Gọi tool: ${call.name}`);
+            console.log(`[CHAT AGENT] Đang tra cứu DB cho: ${call.name} -> ${JSON.stringify(call.args)}`);
             const apiRes = await agentTools[call.name](call.args);
+            console.log(`[CHAT AGENT] Kết quả DB: ${apiRes.substring(0, 50)}...`);
             result = await chat.sendMessage([{ functionResponse: { name: call.name, response: { content: apiRes } } }]);
         }
 
-        res.json({ reply: result.response.text() });
+        const reply = result.response.text();
+        console.log(`[CHAT] AI phản hồi: "${reply.substring(0, 50)}..."`);
+        res.json({ reply });
     } catch (error) {
         console.error('Chat error:', error.message);
         res.status(500).json({ error: error.message });
