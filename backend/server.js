@@ -204,10 +204,10 @@ app.post('/chat', async (req, res) => {
                 console.log(`[CHAT AGENT] Tra cứu: ${call.name} -> ${JSON.stringify(call.args)}`);
                 const apiRes = await agentTools[call.name](call.args);
                 
-                // Gửi lại đầy đủ bối cảnh + kết quả Tool cho AI
+                // Gửi lại đầy đủ bối cảnh + kết quả Tool cho AI và yêu cầu báo cáo
                 contents.push({ role: 'model', parts: [{ functionCall: call }] });
                 contents.push({ role: 'user', parts: [{ functionResponse: { name: call.name, response: { content: apiRes } } }] });
-                contents.push({ role: 'user', parts: [{ text: "Dựa vào kết quả trên, hãy trả lời câu hỏi của tôi thật chi tiết." }] });
+                contents.push({ role: 'user', parts: [{ text: `Dữ liệu tìm được: ${apiRes}. Hãy dựa vào dữ liệu này trả lời Boss ngay lập tức, không được hỏi lại.` }] });
 
                 result = await model.generateContent({ contents });
             } catch (toolErr) {
@@ -218,17 +218,13 @@ app.post('/chat', async (req, res) => {
         let reply = "";
         try {
             reply = result.response.text();
-            if (!reply && result.response.functionCall) {
-                // Nếu AI vẫn cố call tool tiếp, ta lấy tạm kết quả tool trước đó làm câu trả lời
-                reply = "Tôi đã tìm thấy thông tin bạn cần trong hồ sơ khách hàng. Bạn muốn biết chi tiết về phần nào?";
-            }
         } catch (e) {
             console.error("[CHAT] Lỗi Text:", e);
-            reply = "Tôi đã tra cứu được dữ liệu nhưng đang gặp lỗi định dạng. Vui lòng hỏi lại về một thông tin cụ thể hơn nhé!";
+            reply = "Tôi đã tìm thấy dữ liệu nhưng đang gặp lỗi định dạng. Bạn hãy thử hỏi lại nhé!";
         }
 
         console.log(`[CHAT] AI phản hồi: "${reply.substring(0, 50)}..."`);
-        res.json({ reply: reply || "AI đang quá tải, hãy thử lại sau vài giây." });
+        res.json({ reply: reply || "Tôi đã tra cứu được thông tin nhưng AI chưa kịp tóm tắt. Bạn hãy thử hỏi lại câu này nhé!" });
     } catch (error) {
         console.error('Chat error:', error.message);
         res.status(500).json({ error: error.message });
