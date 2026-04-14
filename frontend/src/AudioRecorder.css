@@ -1638,6 +1638,14 @@ body.light-theme .history-item.active {
     max-width: 500px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.3);
     animation: fadeInSlide 0.3s ease-out;
+    color: #ececec;
+}
+
+.light-theme .customer-form-card {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    color: #333333;
 }
 
 .form-header {
@@ -1703,6 +1711,12 @@ body.light-theme .history-item.active {
     transition: 0.2s;
 }
 
+.light-theme .form-input-main {
+    background: #f9f9f9 !important;
+    border: 1px solid #ddd !important;
+    color: #333;
+}
+
 .form-input-main:focus {
     border-color: #818cf8 !important;
     outline: none;
@@ -1724,6 +1738,12 @@ body.light-theme .history-item.active {
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
+.light-theme .dropdown-panel {
+    background: white;
+    border-color: #ddd;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
 .dropdown-panel.show {
     display: block;
 }
@@ -1737,6 +1757,11 @@ body.light-theme .history-item.active {
     background: #1a1a1a;
 }
 
+.light-theme .dropdown-header {
+    background: #f5f5f7;
+    border-bottom-color: #eee;
+}
+
 .dropdown-item {
     padding: 10px 12px;
     font-size: 13px;
@@ -1745,9 +1770,18 @@ body.light-theme .history-item.active {
     transition: 0.1s;
 }
 
+.light-theme .dropdown-item {
+    color: #333;
+}
+
 .dropdown-item:hover {
     background: #2a2a2a;
     color: white;
+}
+
+.light-theme .dropdown-item:hover {
+    background: #f0f0f0;
+    color: #000;
 }
 
 .dropdown-empty {
@@ -1789,10 +1823,21 @@ body.light-theme .history-item.active {
     font-size: 14px;
 }
 
+.light-theme .form-collapsed-preview {
+    background: #f5f5f7;
+    border: 1px dashed #ccc;
+    color: #666;
+}
+
 .form-collapsed-preview:hover {
     background: #222;
     border-color: #818cf8;
     color: white;
+}
+
+.light-theme .form-collapsed-preview:hover {
+    background: #ececf1;
+    color: #333;
 }
 
 .form-collapsed-preview svg {
@@ -1803,6 +1848,24 @@ body.light-theme .history-item.active {
 .form-collapsed-preview:hover svg {
     color: #818cf8;
     transform: translateY(2px);
+}
+
+.form-success-state {
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    border: 1px solid rgba(74, 222, 128, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.light-theme .form-success-state {
+    color: #166534;
+    background: #f0fdf4;
+    border-color: #bbf7d0;
 }
 
 @keyframes fadeInSlide {
