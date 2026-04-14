@@ -171,7 +171,7 @@ app.post('/chat', async (req, res) => {
         if (!message) return res.status(400).json({ message: 'Message is required' });
 
         const model = genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash-latest',
+            model: 'gemini-flash-latest',
             systemInstruction: `Bạn là PharmaVoice AI chuyên nghiệp.
             - Nếu người dùng hỏi về NHÂN VIÊN (doanh số, lịch sử...): sử dụng tool getEmployeeWiki.
             - Nếu người dùng hỏi về KHÁCH HÀNG (bệnh lý, lịch sử mua hàng, tên/sđt...): sử dụng tool getCustomerWiki.
