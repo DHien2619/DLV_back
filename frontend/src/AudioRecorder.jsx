@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-const toast = { success: () => {}, info: () => {}, error: () => {} };
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './AudioRecorder.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -53,6 +54,25 @@ const AudioRecorder = () => {
     const [inputText, setInputText] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [pendingFiles, setPendingFiles] = useState([]); // danh sách file đang staged
+
+    const [allCustomers, setAllCustomers] = useState([]);
+    const [fetchingCustomers, setFetchingCustomers] = useState(false);
+
+    const fetchCustomers = async () => {
+        setFetchingCustomers(true);
+        try {
+            const res = await axios.get(`${API_URL}/customers`);
+            setAllCustomers(res.data || []);
+        } catch (err) {
+            console.error("Lỗi lấy danh sách khách hàng:", err);
+        } finally {
+            setFetchingCustomers(false);
+        }
+    };
+
+    useEffect(() => {
+        if (token) fetchCustomers();
+    }, [token]);
 
     const fileInputRef = useRef(null);
     const avatarInputRef = useRef(null);
@@ -397,15 +417,14 @@ const AudioRecorder = () => {
     // ── Handle Customer Form Submission
     const handlePostUploadCustomerInfo = async (sid, msgIndex, identifier, transcription) => {
         if (!identifier.trim()) {
-            toast.error("Vui lòng nhập tên hoặc SĐT khách hàng!");
+            toast.error("Vui lòng chọn hoặc nhập tên khách hàng!");
             return;
         }
 
+        const toastId = toast.loading("Đang đẩy dữ liệu vào Wiki...");
         try {
-            toast.loading("Đang đẩy dữ liệu vào Wiki...");
             await axios.post(`${API_URL}/update-customer-wiki`, { identifier, transcription });
-            toast.dismiss();
-            toast.success("Đã cập nhật Wiki Khách hàng!");
+            toast.update(toastId, { render: "Đã cập nhật Wiki Khách hàng!", type: "success", isLoading: false, autoClose: 3000 });
 
             // Đánh dấu form này đã xử lý xong
             setSessionData(prev => {
@@ -416,9 +435,11 @@ const AudioRecorder = () => {
                 persistSession(sid, updatedMsgs);
                 return { ...prev, [sid]: { ...temp, messages: updatedMsgs } };
             });
+            
+            // Refresh danh sách khách hàng
+            fetchCustomers();
         } catch (err) {
-            toast.dismiss();
-            toast.error("Lỗi khi cập nhật Wiki: " + (err.response?.data?.message || err.message));
+            toast.update(toastId, { render: "Lỗi khi cập nhật Wiki: " + (err.response?.data?.message || err.message), type: "error", isLoading: false, autoClose: 3000 });
         }
     };
 
@@ -758,11 +779,7 @@ const AudioRecorder = () => {
                 </div>
 
                 <div className="chat-messages">
-                    {messages.length === 0 && (
-                        <div className="empty-state">
-                            {/* Bỏ giao diện chat rỗng theo yêu cầu */}
-                        </div>
-                    )}
+                    {messages.length === 0 && <div className="empty-state" />}
 
                     {messages.map((msg, i) => (
                         <div key={i} className={`message-row ${msg.role === 'user' ? 'user-row-msg' : 'ai-row-msg'}`}>
@@ -783,26 +800,84 @@ const AudioRecorder = () => {
                                         </div>
                                     ) : (
                                         <>
-                                            <p className="form-desc">AI đã phân tích xong. Vui lòng xác nhận danh tính khách hàng để lưu vào Wiki.</p>
-                                            <div className="form-body">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Tên hoặc SĐT khách hàng..." 
-                                                    id={`cust-input-${i}`}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            const val = e.target.value;
-                                                            handlePostUploadCustomerInfo(activeId, i, val, msg.transcriptionForWiki);
-                                                        }
-                                                    }}
-                                                />
-                                                <button onClick={() => {
-                                                    const val = document.getElementById(`cust-input-${i}`).value;
-                                                    handlePostUploadCustomerInfo(activeId, i, val, msg.transcriptionForWiki);
+                                            {!msg.expanded ? (
+                                                <div className="form-collapsed-preview" onClick={() => {
+                                                    setSessionData(prev => {
+                                                        const temp = prev[activeId] || emptySession();
+                                                        const updatedMsgs = temp.messages.map((m, idx) => 
+                                                            idx === i ? { ...m, expanded: true } : m
+                                                        );
+                                                        return { ...prev, [activeId]: { ...temp, messages: updatedMsgs } };
+                                                    });
                                                 }}>
-                                                    Lưu Wiki
-                                                </button>
-                                            </div>
+                                                    <span>Bấm để xác nhận danh tính khách hàng...</span>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                                </div>
+                                            ) : (
+                                                <div className="advanced-form-container">
+                                                    <div className="form-inputs-row">
+                                                        <div className="form-field">
+                                                            <label>Tên khách hàng</label>
+                                                            <div className="custom-select-wrapper">
+                                                                <input 
+                                                                    type="text" 
+                                                                    className="form-input-main"
+                                                                    placeholder="Gõ tên khách..." 
+                                                                    id={`cust-input-${i}`}
+                                                                    autoComplete="off"
+                                                                    onFocus={() => {
+                                                                        const dropdown = document.getElementById(`dropdown-${i}`);
+                                                                        if (dropdown) dropdown.classList.add('show');
+                                                                    }}
+                                                                    onBlur={() => {
+                                                                        setTimeout(() => {
+                                                                            const dropdown = document.getElementById(`dropdown-${i}`);
+                                                                            if (dropdown) dropdown.classList.remove('show');
+                                                                        }, 200);
+                                                                    }}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value.toLowerCase();
+                                                                        const items = document.querySelectorAll(`#dropdown-${i} .dropdown-item`);
+                                                                        items.forEach(item => {
+                                                                            const text = item.innerText.toLowerCase();
+                                                                            item.style.display = text.includes(val) ? 'block' : 'none';
+                                                                        });
+                                                                    }}
+                                                                />
+                                                                <div className="dropdown-panel" id={`dropdown-${i}`}>
+                                                                    <div className="dropdown-header">DANH SÁCH KHÁCH HÀNG</div>
+                                                                    <div className="dropdown-list">
+                                                                        {allCustomers.length === 0 ? (
+                                                                            <div className="dropdown-empty">Chưa có khách cũ</div>
+                                                                        ) : (
+                                                                            allCustomers.map((c, idx) => (
+                                                                                <div key={idx} className="dropdown-item" onClick={() => {
+                                                                                    const input = document.getElementById(`cust-input-${i}`);
+                                                                                    if (input) input.value = c.customer_phone;
+                                                                                }}>
+                                                                                    {c.customer_phone}
+                                                                                </div>
+                                                                            ))
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="form-field">
+                                                            <label>SĐT (Không bắt buộc)</label>
+                                                            <input type="text" className="form-input-main" placeholder="09xxx..." id={`cust-phone-${i}`} />
+                                                        </div>
+                                                    </div>
+                                                    <button className="save-wiki-btn" onClick={() => {
+                                                        const name = document.getElementById(`cust-input-${i}`).value;
+                                                        const phone = document.getElementById(`cust-phone-${i}`).value;
+                                                        const finalId = phone ? `${name} (${phone})` : name;
+                                                        handlePostUploadCustomerInfo(activeId, i, finalId, msg.transcriptionForWiki);
+                                                    }}>
+                                                        Lưu vào Database Wiki
+                                                    </button>
+                                                </div>
+                                            )}
                                         </>
                                     )}
                                 </div>
@@ -830,13 +905,12 @@ const AudioRecorder = () => {
                             </div>
                         </div>
                     ))}
-
                     <div ref={messagesEndRef} />
                 </div>
+                
+                <ToastContainer theme="dark" position="top-right" autoClose={3000} />
 
-                {/* Input */}
                 <div className="chat-input-wrapper">
-                    {/* File preview chips */}
                     {pendingFiles.length > 0 && (
                         <div className="file-preview-chips">
                             {pendingFiles.map((file, idx) => (
@@ -870,7 +944,7 @@ const AudioRecorder = () => {
                                 <line x1="4" y1="12" x2="20" y2="12" />
                             </svg>
                         </button>
-                        <input type="file" ref={fileInputRef} accept="audio/*,video/webm,image/*,application/pdf,text/plain,.doc,.docx" multiple onChange={handleFileChange} />
+                        <input type="file" ref={fileInputRef} hidden accept="audio/*,video/webm,image/*,application/pdf,text/plain,.doc,.docx" multiple onChange={handleFileChange} />
 
                         <textarea
                             ref={textareaRef}
@@ -894,10 +968,9 @@ const AudioRecorder = () => {
                     </div>
                 </div>
             </main>
-
-                </>
-            )}
-        </div>
+        </>
+      )}
+    </div>
     );
 };
 

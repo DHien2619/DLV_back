@@ -560,5 +560,17 @@ Quy tắc trả lời BẮT BUỘC:
         }
     });
 
+    // Endpoint to fetch all customers for the search dropdown
+    app.get('/customers', async (req, res) => {
+        try {
+            // Lấy danh sách ID (Phone/Name) từ wiki để nhân viên chọn lại cho nhanh
+            const { data, error } = await supabase.from('customer_wiki').select('customer_phone, last_updated').order('last_updated', { ascending: false });
+            if (error) throw error;
+            res.json(data);
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi", error: error.message });
+        }
+    });
+
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
