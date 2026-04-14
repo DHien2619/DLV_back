@@ -171,15 +171,22 @@ app.post('/chat', async (req, res) => {
         if (!message) return res.status(400).json({ message: 'Message is required' });
 
         const model = genAI.getGenerativeModel({
-            model: 'gemini-flash-latest',
-            systemInstruction: `Bạn là PharmaVoice AI. Bạn có quyền tra cứu vĩnh cửu. 
-            - Nếu hỏi nhân viên: dùng getEmployeeWiki.
-            - Nếu hỏi khách hàng: dùng getCustomerWiki.
-            Hãy dùng Tool ngầm TRƯỚC khi trả lời Boss. Trình bày Markdown cực kỳ ngắn gọn, chuyên nghiệp.`,
+            model: 'gemini-1.5-flash',
+            systemInstruction: `Bạn là PharmaVoice AI chuyên nghiệp.
+            - Nếu người dùng hỏi về NHÂN VIÊN (doanh số, lịch sử...): sử dụng tool getEmployeeWiki.
+            - Nếu người dùng hỏi về KHÁCH HÀNG (bệnh lý, lịch sử mua hàng, tên/sđt...): sử dụng tool getCustomerWiki.
+            - Nếu chỉ chào hỏi hoặc hỏi kiến thức y tế chung: Trả lời trực tiếp bằng kiến thức của bạn.
+            Hãy trình bày Markdown đẹp, ngắn gọn và chuyên nghiệp.`,
             tools: [{ functionDeclarations: [
                 { name: "getEmployeeWiki", description: "Tra cứu wiki NV", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } },
-                { name: "getCustomerWiki", description: "Tra cứu wiki KH (Bệnh lý, lịch sử mua hàng, tương tác)", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } }
-            ]}]
+                { name: "getCustomerWiki", description: "Tra cứu hồ sơ khách hàng (Bệnh lý, lịch sử mua hàng, tương tác)", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } }
+            ]}],
+            safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            ]
         });
 
         // Chuẩn hóa lịch sử: Bắt buộc xen kẽ user/model
