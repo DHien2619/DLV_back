@@ -194,8 +194,9 @@ app.post('/chat', async (req, res) => {
             systemInstruction: `Bạn là PharmaVoice AI chuyên nghiệp.
             - Nếu người dùng hỏi về NHÂN VIÊN (doanh số, lịch sử...): sử dụng tool getEmployeeWiki.
             - Nếu người dùng hỏi về KHÁCH HÀNG (bệnh lý, lịch sử mua hàng, tên/sđt...): sử dụng tool getCustomerWiki.
+            - QUAN TRỌNG: Khi tra cứu khách hàng/nhân viên, chỉ lấy "Tên cốt lõi" hoặc "Số điện thoại". Ví dụ: hỏi "Khách Vũ" -> dùng "Vũ", "A Tài" -> dùng "Tài". KHÔNG bao gồm các từ "khách", "ông", "bà", "anh", "chị" vào query.
             - Nếu chỉ chào hỏi hoặc hỏi kiến thức y tế chung: Trả lời trực tiếp bằng kiến thức của bạn.
-            Hãy trình bày Markdown đẹp, ngắn gọn và chuyên nghiệp.`,
+            - Hãy trình bày Markdown đẹp, ngắn gọn và chuyên nghiệp.`,
             tools: [{ functionDeclarations: [
                 { name: "getEmployeeWiki", description: "Tra cứu wiki NV", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } },
                 { name: "getCustomerWiki", description: "Tra cứu hồ sơ khách hàng (Bệnh lý, lịch sử mua hàng, tương tác)", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } }, required: ["query"] } }
