@@ -345,15 +345,25 @@ app.delete('/delete/:id', async (req, res) => {
 });
 
 // Helper API for Agent to read Wiki
-async function getEmployeeWikiApi(phone) {
-    console.log("[AGENT TOOL] Gọi DB lấy wiki cho:", phone);
-    const { data } = await supabase.from('employee_wiki').select('*').eq('employee_phone', phone).single();
-    if (!data) return "Dữ liệu trống: Không tìm hiểu được nhân viên mang SĐT " + phone + ". Hãy báo người dùng kiểm tra lại SĐT.";
-    return `TRÍCH XUẤT TỪ DATABASE_WIKI SĐT ${phone}:\nLần cập nhật: ${data.last_updated}\nTổng số cuộc gọi: ${data.total_calls}\n\nNỘI DUNG THEO DÕI NĂNG LỰC:\n${data.wiki_content}`;
+async function getEmployeeWikiApi(nameOrPhone) {
+    console.log("[AGENT TOOL] Gọi DB lấy wiki cho:", nameOrPhone);
+    const { data, error } = await supabase
+        .from('employee_wiki')
+        .select('*')
+        .or(`employee_phone.ilike.%${nameOrPhone}%,wiki_content.ilike.%${nameOrPhone}%`)
+        .limit(3);
+
+    if (!data || data.length === 0) return "Dữ liệu trống: Không tìm thấy nhân viên mang tên hoặc SĐT: " + nameOrPhone + ". Hãy báo người dùng kiểm tra lại.";
+    
+    let resultStr = "";
+    for (let i = 0; i < data.length; i++) {
+        resultStr += `TRÍCH XUẤT TỪ DATABASE_WIKI SĐT ${data[i].employee_phone}:\nLần cập nhật: ${data[i].last_updated}\nTổng số cuộc gọi: ${data[i].total_calls}\n\nNỘI DUNG THEO DÕI NĂNG LỰC:\n${data[i].wiki_content}\n\n---\n`;
+    }
+    return resultStr;
 }
 
 const agentTools = {
-    getEmployeeWiki: ({ employeePhone }) => getEmployeeWikiApi(employeePhone)
+    getEmployeeWiki: ({ query }) => getEmployeeWikiApi(query)
 };
 
 // ============================================================
@@ -369,7 +379,7 @@ app.post('/chat', async (req, res) => {
             model: 'gemini-flash-latest', // Chuyển sang Flash để mượt, chống kẹt Quota
             systemInstruction: `Bạn là PharmaVoice AI — trợ lý y tế thông minh và MỘT ĐẶC VỤ TÀI BA (AGENT).
 Quy tắc trả lời BẮT BUỘC:
-1. Bạn CÓ QUYỀN TRUY CẬP HỆ THỐNG WIKI. Nếu người dùng hỏi về năng lực, thành tích, đánh giá, hoặc lịch sử của 1 nhân viên cụ thể (đặc biệt có SĐT), BẮT BUỘC dùng Tool "getEmployeeWiki" để tra cứu thông tin ngầm trước khi trả lời.
+1. Bạn CÓ QUYỀN TRUY CẬP HỆ THỐNG WIKI. Nếu người dùng hỏi về năng lực, thành tích, đánh giá, hoặc lịch sử của 1 nhân viên cụ thể, BẮT BUỘC dùng Tool "getEmployeeWiki" để tra cứu thông tin ngầm trước khi trả lời.
 2. LUÔN NGẮN GỌN & HIỆU QUẢ: Đi thẳng vào vấn đề, tuyệt đối KHÔNG viết diễn giải dài dòng.
 3. DỄ NHÌN & ĐẸP MẮT: LUÔN trình bày dưới dạng Bullet points, in đậm các keyword.
 4. TỰ TIN: Đừng bao giờ nói "Tôi không có quyền", bây giờ bạn đã được ban quyền truy cập.`,
@@ -377,16 +387,16 @@ Quy tắc trả lời BẮT BUỘC:
                 functionDeclarations: [
                     {
                         name: "getEmployeeWiki",
-                        description: "Tra cứu hồ sơ theo dõi năng lực (Wiki) của nhân viên thông qua Số Điện Thoại (SĐT). Dùng khi Boss hỏi về một nhân viên cụ thể.",
+                        description: "Tra cứu hồ sơ theo dõi năng lực (Wiki) của nhân viên thông qua Tên hoặc Số điện thoại. Dùng khi Boss hỏi về một nhân viên cụ thể.",
                         parameters: {
                             type: "OBJECT",
                             properties: {
-                                employeePhone: {
+                                query: {
                                     type: "STRING",
-                                    description: "SĐT của nhân viên (Ví dụ: 0352394002, 090...)"
+                                    description: "Tên HOẶC SĐT của nhân viên (Ví dụ: Hải, Tiến sĩ Hải, 0352...)"
                                 }
                             },
-                            required: ["employeePhone"]
+                            required: ["query"]
                         }
                     }
                 ]
