@@ -344,6 +344,18 @@ app.delete('/delete/:id', async (req, res) => {
     }
 });
 
+// Helper API for Agent to read Wiki
+async function getEmployeeWikiApi(phone) {
+    console.log("[AGENT TOOL] Gọi DB lấy wiki cho:", phone);
+    const { data } = await supabase.from('employee_wiki').select('*').eq('employee_phone', phone).single();
+    if (!data) return "Dữ liệu trống: Không tìm hiểu được nhân viên mang SĐT " + phone + ". Hãy báo người dùng kiểm tra lại SĐT.";
+    return `TRÍCH XUẤT TỪ DATABASE_WIKI SĐT ${phone}:\nLần cập nhật: ${data.last_updated}\nTổng số cuộc gọi: ${data.total_calls}\n\nNỘI DUNG THEO DÕI NĂNG LỰC:\n${data.wiki_content}`;
+}
+
+const agentTools = {
+    getEmployeeWiki: ({ employeePhone }) => getEmployeeWikiApi(employeePhone)
+};
+
 // ============================================================
 // CHAT endpoint — hội thoại đa lượt với Gemini (có nhớ context)
 // Body: { message: string, history: [{role:'user'|'model', content:string}] }
@@ -354,15 +366,32 @@ app.post('/chat', async (req, res) => {
         if (!message) return res.status(400).json({ message: 'Message is required' });
 
         const model = genAI.getGenerativeModel({
-            model: 'gemini-3.1-pro-preview',
-            systemInstruction: `Bạn là PharmaVoice AI — trợ lý y tế thông minh, chuyên nghiệp và vắn tắt.
+            model: 'gemini-flash-latest', // Chuyển sang Flash để mượt, chống kẹt Quota
+            systemInstruction: `Bạn là PharmaVoice AI — trợ lý y tế thông minh và MỘT ĐẶC VỤ TÀI BA (AGENT).
 Quy tắc trả lời BẮT BUỘC:
-1. LUÔN NGẮN GỌN & HIỆU QUẢ: Đi thẳng vào vấn đề, tuyệt đối KHÔNG viết diễn giải dài dòng.
-2. DỄ NHÌN & ĐẸP MẮT: LUÔN trình bày dưới dạng Bullet points, in đậm các keyword.
-3. SỬ DỤNG EMOJI: Áp dụng các emoji (🎯, 💡, 🔴, ✅, 💊) vào đầu ý chính để nội dung dễ đọc, không bị ngán chữ.
-4. CẤU TRÚC PHÂN TÍCH CHUẨN: Ví dụ: [🎯 Vấn đề chính], [💡 Triệu chứng/Thông tin chắt lọc], [✅ Kết luận/Hướng xử lý].
-Hãy nhớ: Càng súc tích và dễ lướt đọc càng tốt!`,
-        });
+1. Bạn CÓ QUYỀN TRUY CẬP HỆ THỐNG WIKI. Nếu người dùng hỏi về năng lực, thành tích, đánh giá, hoặc lịch sử của 1 nhân viên cụ thể (đặc biệt có SĐT), BẮT BUỘC dùng Tool "getEmployeeWiki" để tra cứu thông tin ngầm trước khi trả lời.
+2. LUÔN NGẮN GỌN & HIỆU QUẢ: Đi thẳng vào vấn đề, tuyệt đối KHÔNG viết diễn giải dài dòng.
+3. DỄ NHÌN & ĐẸP MẮT: LUÔN trình bày dưới dạng Bullet points, in đậm các keyword.
+4. TỰ TIN: Đừng bao giờ nói "Tôi không có quyền", bây giờ bạn đã được ban quyền truy cập.`,
+            tools: [{
+                functionDeclarations: [
+                    {
+                        name: "getEmployeeWiki",
+                        description: "Tra cứu hồ sơ theo dõi năng lực (Wiki) của nhân viên thông qua Số Điện Thoại (SĐT). Dùng khi Boss hỏi về một nhân viên cụ thể.",
+                        parameters: {
+                            type: "OBJECT",
+                            properties: {
+                                employeePhone: {
+                                    type: "STRING",
+                                    description: "SĐT của nhân viên (Ví dụ: 0352394002, 090...)"
+                                }
+                            },
+                            required: ["employeePhone"]
+                        }
+                    }
+                ]
+            }]
+        }); // End of model configuration
 
         // Normalize history to strictly alternate user/model and start with user
         const normalizedHistory = [];
@@ -403,7 +432,28 @@ Hãy nhớ: Càng súc tích và dễ lướt đọc càng tốt!`,
         }
 
         const chat = model.startChat({ history: normalizedHistory });
-        const result = await chat.sendMessage(finalMessage);
+        let result = await chat.sendMessage(finalMessage);
+        
+        // Vòng lặp Agent: Kiểm tra xem AI có muốn lấy rổ đồ nghề ra không
+        if (result.response.functionCalls && result.response.functionCalls.length > 0) {
+            const call = result.response.functionCalls[0];
+            if (call.name === 'getEmployeeWiki') {
+                console.log(`[AGENT] Tham chiếu DB cho tool ${call.name} với tham số:`, call.args);
+                
+                // Thực thi lệnh moi Database
+                const apiResponse = await agentTools[call.name](call.args);
+                console.log(`[AGENT] Đã kéo xong Database, trả mồi về cho LLM...`);
+                
+                // Ném kết quả mồi lại cho AI tiêu hóa và lên văn
+                result = await chat.sendMessage([{
+                    functionResponse: {
+                        name: call.name,
+                        response: { content: apiResponse }
+                    }
+                }]);
+            }
+        }
+
         const responseText = result.response.text();
 
         res.json({ reply: responseText });
