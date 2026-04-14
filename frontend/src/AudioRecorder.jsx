@@ -44,6 +44,10 @@ const AudioRecorder = () => {
     const sessionDataRef = useRef(sessionData);
     useEffect(() => { sessionDataRef.current = sessionData; }, [sessionData]);
 
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = user.id || null;
+
     // ── Mobile Responsive Sidebar & Settings
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -57,6 +61,9 @@ const AudioRecorder = () => {
 
     const [allCustomers, setAllCustomers] = useState([]);
     const [fetchingCustomers, setFetchingCustomers] = useState(false);
+    
+    const [username, setUsername] = useState(user.name || 'User');
+    const [userImage, setUserImage] = useState(user.image || 'https://cdn.iconscout.com/icon/free/png-256/free-avatar-370-456322.png');
 
     const fetchCustomers = async () => {
         setFetchingCustomers(true);
@@ -74,11 +81,23 @@ const AudioRecorder = () => {
         if (token) fetchCustomers();
     }, [token]);
 
+    useEffect(() => {
+        if (!token) {
+            window.location.replace('/login');
+        }
+    }, [token]);
+
+    useEffect(() => {
+        if (theme === 'light') document.body.classList.add('light-theme');
+        else document.body.classList.remove('light-theme');
+        localStorage.setItem('theme', theme);
+    }, [theme]);
+    
     const fileInputRef = useRef(null);
     const avatarInputRef = useRef(null);
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
-    
+
     // ── Grouped Sessions ──────────────────────────────────────
     const groupedChats = React.useMemo(() => {
         const groups = { today: [], yesterday: [], last7Days: [], older: [] };
@@ -110,25 +129,6 @@ const AudioRecorder = () => {
         });
         return groups;
     }, [chatSessions, searchQuery]);
-
-    const token = localStorage.getItem('token');
-
-    useEffect(() => {
-        if (!token) {
-            window.location.replace('/login');
-        }
-    }, [token]);
-
-    const user = JSON.parse(localStorage.getItem('user')) || {};
-    const userId = user.id || null;
-    const [username, setUsername] = useState(user.name || 'User');
-    const [userImage, setUserImage] = useState(user.image || 'https://cdn.iconscout.com/icon/free/png-256/free-avatar-370-456322.png');
-
-    useEffect(() => {
-        if (theme === 'light') document.body.classList.add('light-theme');
-        else document.body.classList.remove('light-theme');
-        localStorage.setItem('theme', theme);
-    }, [theme]);
 
     // Current session live data
     const current = sessionData[activeId] || emptySession();
