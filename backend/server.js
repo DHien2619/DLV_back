@@ -151,6 +151,56 @@ Hãy rà soát HỒ SƠ HIỆN TẠI và THÔNG TIN MỚI, sau đó VIẾT LẠI
     }
 }
 
+// ── LLM INSIGHT EXTRACTOR (FOR ANALYTICS DASHBOARD) ───────────
+async function extractAndSaveInsights(transcriptionId, transcriptionText) {
+    if (!transcriptionId || !transcriptionText) return;
+    try {
+        console.log(`[Insight Extractor] Đang trích xuất dữ liệu chuẩn hóa cho biên bản: ${transcriptionId}`);
+        const prompt = `Từ nội dung phân tích cuộc gặp/cuộc gọi y tế dưới đây, hãy trích xuất dữ liệu thành cấu trúc chuẩn JSON (bắt buộc đúng format, không kèm markdown \`\`\`json):
+
+NỘI DUNG GỐC:
+"""
+${transcriptionText.substring(0, 10000)}
+"""
+
+YÊU CẦU ĐẦU RA JSON CÓ CÁC TRƯỜNG SAU:
+{
+  "call_score": <số nguyên từ 0-100 đánh giá chất lượng cuộc gọi/tư vấn>,
+  "readiness_to_buy": "<Cao | Trung Bình | Thấp>",
+  "pain_points": ["<Nỗi đau 1>", "<Nỗi đau 2>"],
+  "needs": ["<Nhu cầu 1>", "<Nhu cầu 2>"],
+  "competitors_mentioned": ["<Tên đối thủ/nhãn hiệu khác nếu có>"],
+  "customer_sentiment": "<Tích cực | Tiêu cực | Khá khó tính | Hợp tác>"
+}`;
+
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        const result = await model.generateContent(prompt);
+        let rawText = result.response.text();
+        rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        
+        let insightsData;
+        try {
+            insightsData = JSON.parse(rawText);
+        } catch(parseErr) {
+            console.error("[Insight Extractor] Lỗi parse JSON từ LLM:", rawText);
+            return;
+        }
+
+        // Cập nhật JSON vào cột insights của bảng transcriptions
+        const { error: dbError } = await supabase.from('transcriptions').update({
+            insights: insightsData
+        }).eq('id', transcriptionId);
+
+        if (dbError) {
+            console.error(`[Insight Extractor] Lỗi DB khi lưu insights:`, dbError.message);
+        } else {
+            console.log(`[Insight Extractor] ✅ Đã lưu JSON insights thành công: ${transcriptionId}`);
+        }
+    } catch (e) {
+        console.error("[Insight Extractor] Lỗi:", e.message);
+    }
+}
+
 // ── ROUTES ────────────────────────────────────────────────────
 
 app.get('/', (req, res) => {
@@ -292,13 +342,21 @@ Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sa
             try { await fileManager.deleteFile(uploadResponse.file.name); } catch (e) { }
 
             // Save to database
-            const { error: dbError } = await supabase.from('transcriptions').insert([{
+            const { data: savedRecord, error: dbError } = await supabase.from('transcriptions').insert([{
                 audioURL: req.file ? req.file.originalname : '',
                 transcription: transcriptionText,
                 status: 'completed',
                 user_id: userId
             }]).select().single();
-            if (dbError) console.error("Lỗi lưu DB:", dbError);
+            
+            if (dbError) {
+                console.error("Lỗi lưu DB:", dbError);
+            } else if (savedRecord && savedRecord.id) {
+                // Async: Trích xuất và lưu Insight JSON phục vụ Dashboard (không block UI)
+                extractAndSaveInsights(savedRecord.id, transcriptionText).catch(e => 
+                    console.error("Lỗi chạy nền Insights:", e)
+                );
+            }
 
             // Auto-update Employee Wiki (if filename starts with phone number)
             if (req.file && req.file.originalname) {
