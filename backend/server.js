@@ -204,14 +204,25 @@ app.post('/chat', async (req, res) => {
         }
 
         // Bước 3: Tổng hợp câu trả lời cuối cùng (Agentic Response)
-        const finalPrompt = `Dựa trên yêu cầu: "${message}" ${contextData ? `và Dữ liệu sau: ${contextData}` : ""}
-        Hãy trả lời người dùng một cách chuyên nghiệp, đầy đủ và thân thiện như một trợ lý y tế. 
-        Sử dụng Markdown để trình bày kết quả tra cứu (nếu có).`;
+        const finalPrompt = `Dữ liệu tìm được: ${contextData || "Không thấy dữ liệu."}. 
+        Boss yêu cầu: "${message}". 
+        Hãy báo cáo kết quả này thật ngắn gọn bằng Tiếng Việt. Đừng dùng từ nhạy cảm để tránh bị block.`;
 
         console.log(`[AGENT] Đang tổng hợp câu trả lời cuối cùng...`);
-        const finalResult = await model.generateContent(finalPrompt);
-        
-        const reply = finalResult.response.text() || "Tôi đã tra cứu được dữ liệu nhưng gặp lỗi khi trình bày. Hãy thử lại nhé!";
+        let finalReply = "";
+        try {
+            const finalResult = await model.generateContent(finalPrompt);
+            finalReply = finalResult.response.text();
+        } catch (e) {
+            console.error("[AGENT] Lỗi tóm tắt:", e.message);
+        }
+
+        // Nếu AI vẫn im lặng, ta tự trả lời bằng dữ liệu thô
+        if (!finalReply && contextData) {
+            finalReply = `⚠️ AI gặp lỗi trình bày nhưng tôi đã tìm thấy dữ liệu sau trong Database:\n\n${contextData}`;
+        }
+
+        const reply = finalReply || "Tôi đã tra cứu nhưng không tìm thấy thông tin phù hợp.";
         console.log(`[AGENT] Hoàn tất.`);
         res.json({ reply });
     } catch (error) {
