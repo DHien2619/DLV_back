@@ -869,7 +869,8 @@ const AudioRecorder = () => {
                                                                         allCustomers.map((c, idx) => {
                                                                             const displayName = c.customer_name || c.customer_phone;
                                                                             const phone = c.customer_phone;
-                                                                            const isPhoneKey = /^0\d{9,10}$/.test(phone);
+                                                                            // Nhận bất kỳ SĐT nào không rỗng là khóa hợp lệ
+                                                                            const isPhoneKey = phone && phone.trim().length > 0 && phone !== (c.customer_name || '');
                                                                             return (
                                                                                 <div key={idx} className="dropdown-item" onClick={() => {
                                                                                     // Điền tên vào ô Tên
