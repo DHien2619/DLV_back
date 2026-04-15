@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sơ đồ tư duy AI & Database - PharmaVoice</title>
-    <!-- Nhúng thư viện Mermaid.js từ CDN để vẽ sơ đồ -->
+    <title>Sơ Đồ Tuần Tự Hệ Thống - PharmaVoice</title>
+    <!-- Nhúng thư viện Mermaid.js từ CDN -->
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'default', /* Chuyển sang nền sáng (default) để in ra file Doc/Word dễ dán hơn */
+            sequence: { showSequenceNumbers: true }
+        });
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -19,11 +23,10 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-            color: #f8fafc;
+            background: #f8fafc; /* Màu nền sáng nhạt, tốt cho tài liệu */
+            color: #1e293b;
             margin: 0;
             padding: 40px;
-            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -31,152 +34,109 @@
 
         .header-section {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             max-width: 800px;
         }
 
         h1 {
-            color: #818cf8;
-            font-size: 2.5rem;
-            margin-bottom: 16px;
+            color: #2563eb;
+            font-size: 2.2rem;
+            margin-bottom: 12px;
             font-weight: 700;
-            letter-spacing: -0.02em;
         }
 
         p {
-            color: #cbd5e1;
+            color: #475569;
             font-size: 1.1rem;
             margin: 0;
-            font-weight: 400;
         }
 
         .diagram-container {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 20px 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             width: 100%;
-            max-width: 1200px;
+            max-width: 900px;
             overflow-x: auto;
         }
 
-        .explanation {
-            margin-top: 40px;
-            max-width: 1000px;
+         /* Thêm hướng dẫn copy vào Word */
+        .copy-guide {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #fef3c7;
+            border-left: 5px solid #f59e0b;
+            border-radius: 8px;
+            max-width: 900px;
             width: 100%;
-            background: rgba(15, 23, 42, 0.8);
-            padding: 30px;
-            border-radius: 16px;
-            border-left: 4px solid #818cf8;
         }
 
-        .explanation h3 {
-            color: #a5b4fc;
-            margin-top: 0;
-            font-size: 1.5rem;
-        }
-
-        .explanation ul {
-            padding-left: 20px;
-        }
-
-        .explanation li {
-            margin-bottom: 12px;
-            color: #e2e8f0;
-        }
-
-        .explanation li strong {
-            color: #818cf8;
-        }
+        .copy-guide h4 { margin-top: 0; color: #b45309; }
     </style>
 </head>
 <body>
 
     <div class="header-section">
-        <h1>Luồng Xử Lý AI & Cơ Sở Dữ Liệu</h1>
-        <p>PharmaVoice Architecture Mindmap - Sơ đồ giải thích cách Hệ thống lưu trữ, và cách AI "lục lọi" dữ liệu trong Database để trả lời chính xác thông tin Khách hàng.</p>
+        <h1>Sơ Đồ Hệ Thống AI & Cơ Sở Dữ Liệu</h1>
+        <p>PharmaVoice Architecture (Sequence Diagram)</p>
+        <p style="font-size: 14px; margin-top: 5px;">*Biểu diễn dạng Sequence (Tuần tự) được ưa dùng trong các bản báo cáo học thuật, công ty vì cực kỳ trực quan và không bị rối dây.</p>
     </div>
 
     <div class="diagram-container">
         <div class="mermaid">
-            flowchart TD
-                %% Định dạng màu sắc
-                classDef frontend fill:#2563eb,stroke:#1d4ed8,stroke-width:2px,color:#fff,rx:8px,ry:8px
-                classDef backend fill:#059669,stroke:#047857,stroke-width:2px,color:#fff,rx:8px,ry:8px
-                classDef database fill:#ea580c,stroke:#c2410c,stroke-width:2px,color:#fff,rx:12px,ry:12px
-                classDef ai fill:#7c3aed,stroke:#5b21b6,stroke-width:2px,color:#fff,rx:8px,ry:8px
-                classDef user fill:#475569,stroke:#334155,stroke-width:2px,color:#fff,rx:20px,ry:20px
+            sequenceDiagram
+                autonumber
+                actor U as 🧑‍⚕️ Người dùng
+                participant FE as 💻 Frontend (React)
+                participant BE as ⚙️ Backend (Node.js)
+                participant AI as 🧠 AI (Gemini)
+                participant DB as 🗄️ Database (Supabase)
 
-                %% Các Node chính
-                U("🧑‍⚕️ Người dùng<br/>Nhân viên / Quản lý"):::user
-                FE["💻 Frontend<br/>(React, UI Chat, Dashboard)"]:::frontend
-                BE["⚙️ Backend Node.js<br/>(Server Controller)"]:::backend
-                
-                %% Khối Database (Sử dụng Supabase)
-                subgraph DB ["🗄️ CƠ SỞ DỮ LIỆU SUPABASE"]
-                    DB_T[("Bảng Transcriptions<br/>Lịch sử dịch, Đánh giá KPI")]:::database
-                    DB_U[("Bảng Users / Khách hàng<br/>Hồ sơ Wiki, SĐT")]:::database
-                end
-                
-                %% Khối AI
-                subgraph GEMINI ["🧠 AI ENGINE (GEMINI PRO)"]
-                    AI_T["Nhận diện giọng nói & Dịch<br/>Rút trích Insights (JSON)"]:::ai
-                    AI_C["Chatbot & Phân tích ngữ cảnh<br/>(Retrieval Response)"]:::ai
+                %% LUỒNG 1: UPLOAD
+                rect rgb(239, 246, 255)
+                note right of U: LUỒNG 1: QUÁ TRÌNH GHI ÂM VÀ LƯU DỰ LIỆU (TRANSCRIPTION)
+                U->>FE: 1. Bấm thu âm / Upload Audio
+                FE->>BE: 2. Gọi API /upload (Gửi file)
+                BE->>AI: 3. Chuyển tiếp file bắt AI phân tích
+                AI-->>BE: 4. Trả về Text hội thoại + Điểm Insights (Chỉ số chốt sale)
+                BE->>DB: 5. Lưu Text & Điểm Insights vào bảng Transcriptions
+                BE->>DB: 6. Cập nhật hồ sơ tóm tắt vào bảng Users (Wiki)
+                BE-->>FE: 7. Trả kết quả thành công cho giao diện
                 end
 
-                %% ===============================
-                %% LUỒNG 1: UPLOAD & PHÂN TÍCH
-                %% ===============================
-                U -- "1. Tải lên File Ghi âm / Ảnh" --> FE
-                FE -- "2. API /upload (FormData)" --> BE
-                BE -- "3. Gửi File thô" --> AI_T
-                AI_T -- "4. Trả về Text & Chỉ số Insights" --> BE
-                BE -- "5. INSERT dữ liệu" --> DB_T
-                BE -- "6. Cập nhật Wiki" --> DB_U
-                
-                %% ===============================
-                %% LUỒNG 2: AI CHAT TRUY XÉT DB (RAG)
-                %% ===============================
-                U -- "7. Chat hỏi tìm kiếm khách hàng" --> FE
-                FE -- "8. Gửi câu hỏi /chat" --> BE
-                
-                %% Logic Backend lấy context từ DB
-                BE -- "9. SELECT lịch sử theo User/SĐT" --> DB_T
-                BE -- "10. Lấy Hồ sơ Wiki KH" --> DB_U
-                
-                DB_T -. "11. Bản text cũ & Điểm đánh giá" .-> BE
-                DB_U -. "12. Tóm tắt sở thích KH" .-> BE
-                
-                BE -- "13. TIÊM NGỮ CẢNH: Toàn bộ Data + Câu hỏi User" --> AI_C
-                
-                AI_C -- "14. Đọc hiểu Context và xuất Câu trả lời" --> BE
-                BE -- "15. Trả kết quả API" --> FE
-                FE -- "16. Hiển thị Lời giải đáp" --> U
-                
-                %% ===============================
-                %% LUỒNG 3: DASHBOARD THỐNG KÊ
-                %% ===============================
-                U -. "Xem Dashboard" .-> FE
-                FE -. "/dashboard API" .-> BE
-                BE -. "JOIN" .-> DB_T
-                DB_T -. "Dữ liệu Biểu đồ" .-> FE
+                %% LUỒNG 2: RAG
+                rect rgb(240, 253, 244)
+                note right of U: LUỒNG 2: AI HOẠT ĐỘNG VỚI CƠ SỞ DỮ LIỆU (Kỹ thuật RAG)
+                U->>FE: 8. Chat: "Khách hàng Nguyễn Văn A có sở thích gì?"
+                FE->>BE: 9. Gỡ gói tin, gọi API /chat
+                BE->>DB: 10. Truy vấn (SELECT) lịch sử của Khách A
+                DB-->>BE: 11. Trả về lịch sử mua hàng, đoạn text cũ
+                Note over BE,AI: ⚠️ GHÉP NỐI: Lịch sử DB + Câu hỏi User (Context Injection)
+                BE->>AI: 12. Gửi Prompt khủng (nhét data DB mớm cho AI)
+                AI-->>BE: 13. Phân tích ngữ cảnh & Trả lời cực chính xác
+                BE-->>FE: 14. Đẩy câu trả lời mượt mà ra giao diện
+                FE-->>U: 15. Hiển thị đáp án cho nhân viên
+                end
 
-                %% Link Styles
-                linkStyle 0,1,2,3,4,5 stroke:#cbd5e1,stroke-width:2px,stroke-dasharray: 5 5;
-                linkStyle 6,7,8,9,12 stroke:#fde047,stroke-width:3px;
-                linkStyle 10,11,13,14,15 stroke:#4ade80,stroke-width:3px;
+                %% LUỒNG 3: DASHBOARD
+                rect rgb(255, 247, 237)
+                note right of U: LUỒNG 3: PHÂN TÍCH QUẢN TRỊ (DASHBOARD)
+                U->>FE: 16. Mở màn hình Thống kê (Dashboard)
+                FE->>BE: 17. Gọi API /dashboard
+                BE->>DB: 18. Lệnh JOIN bảng Transcriptions và bảng Users
+                DB-->>BE: 19. Trả về toàn bộ dữ liệu KPI hệ thống
+                BE-->>FE: 20. Trả dữ liệu JSON
+                FE-->>U: 21. Vẽ biểu đồ Trend Svg & Lưới Data
+                end
         </div>
     </div>
 
-    <div class="explanation">
-        <h3>💡 Cách hệ thống của chúng ta hoạt động (Giải thích chi tiết)</h3>
-        <ul>
-            <li><strong>Nhập Dữ Liệu (Luồng đứt đoạn):</strong> Khi bạn upload file hoặc ghi âm, AI sẽ dịch đoạn hội thoại. Backend Node.js sẽ lưu văn bản đó cùng với các <em>Insights (Điểm thái độ, Mức độ chốt đơn)</em> vào bảng <code>Transcriptions</code>. Nếu bạn xác nhận đây là Khách hàng H, hệ thống sẽ lưu thông tin tóm tắt vào <code>Customer Wiki</code>.</li>
-            <li><strong>AI truy xét Database (Luồng màu vàng/xanh lá):</strong> AI bản chất không thể tự chui vào Database của bạn. Để AI biết "Khách A là ai", khi bạn gửi câu hỏi chat, <strong>Backend sẽ tự động quăng câu lệnh SELECT vào DB</strong> để móc toàn bộ lịch sử (Wiki, Text cũ) của khách hàng đó ra.</li>
-            <li><strong>Tiêm Ngữ Cảnh (Context Injection):</strong> Backend sẽ nối chuỗi dữ liệu vừa móc được vào chung với câu hỏi của bạn. Lúc này, AI được mớm tận miệng một khối thông tin khổng lồ và chỉ việc tổng hợp lại thành câu trả lời tự nhiên nhất trả về màn hình cho bạn. Kỹ thuật này gọi là <strong>RAG (Retrieval-Augmented Generation)</strong>.</li>
-        </ul>
+    <div class="copy-guide">
+        <h4>📝 Cách cho vào file Word/Tài liệu Docx:</h4>
+        <p>1. Bạn hãy dùng công cụ <b>Snipping Tool (Windows + Shift + S)</b> để chụp lại bảng sơ đồ trắng tinh đằng trên.</p>
+        <p>2. Dán nó vào file Word (Ctrl + V). Diagram hình chữ nhật dọc này rất vừa chuẩn khổ giấy A4, cực kỳ gọn gàng để được thêm điểm đồ án.</p>
     </div>
 
 </body>
