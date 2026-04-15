@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cấu Trúc Hệ Thống AI Truy Xuất Database</title>
+    <!-- Nhúng Mermaid.js -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a;
+            color: #f3f4f6;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #818cf8;
+            font-size: 2rem;
+            margin-bottom: 50px;
+            text-align: center;
+        }
+
+        .section {
+            background-color: #262626;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            width: 100%;
+            max-width: 900px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #404040;
+        }
+
+        .section h2 {
+            border-bottom: 1px solid #404040;
+            padding-bottom: 15px;
+            color: #d1d5db;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Kiến Trúc Chuẩn: AI Truy Xuất Cơ Sở Dữ Liệu</h1>
+
+    <!-- PHẦN 1 -->
+    <div class="section">
+        <h2>Phần 1 &mdash; Tổng quan luồng chính:</h2>
+        <div class="mermaid">
+            flowchart TD
+                classDef user fill:#4b5563,stroke:#374151,color:#fff,rx:8px,ry:8px
+                classDef ai fill:#4f46e5,stroke:#4338ca,color:#fff,rx:8px,ry:8px
+                classDef query fill:#b45309,stroke:#92400e,color:#fff,rx:8px,ry:8px
+                classDef db fill:#059669,stroke:#047857,color:#fff,rx:8px,ry:8px
+
+                U["Người dùng<br/>Đặt câu hỏi bằng ngôn ngữ tự nhiên"]:::user
+                LLM["AI Model (LLM)<br/>Phân tích ý định, lên kế hoạch truy vấn"]:::ai
+                Q["Sinh câu truy vấn<br/>SQL query hoặc vector search"]:::query
+                DB["Database<br/>Thực thi truy vấn, trả về dữ liệu thô"]:::db
+                SYN["AI tổng hợp kết quả<br/>Chuyển dữ liệu thô thành câu trả lời"]:::ai
+                RES["Kết quả trả về<br/>Ngôn ngữ tự nhiên, bảng, biểu đồ"]:::user
+
+                U --> LLM
+                LLM --> Q
+                Q --> DB
+                DB --> SYN
+                SYN --> RES
+                
+                SYN -.->|Vòng lặp nếu cần| LLM
+        </div>
+    </div>
+
+    <!-- PHẦN 2 -->
+    <div class="section">
+        <h2>Phần 2 &mdash; Các phương thức AI dùng để truy xét DB:</h2>
+        <div class="mermaid">
+            flowchart TD
+                classDef sql fill:#b45309,stroke:#92400e,color:#fff,rx:8px,ry:8px
+                classDef sqldb fill:#4b5563,stroke:#374151,color:#fff,rx:8px,ry:8px
+                classDef res fill:#059669,stroke:#047857,color:#fff,rx:8px,ry:8px
+
+                subgraph T2S [ ]
+                    direction TB
+                    T1["Text-to-SQL<br/>Câu hỏi → lệnh SQL"]:::sql
+                    D1["SQL Database"]:::sqldb
+                    R1["Kết quả có cấu trúc<br/>MySQL, PostgreSQL"]:::res
+                    T1 --> D1 --> R1
+                end
+
+                subgraph RAG [ ]
+                    direction TB
+                    T2["RAG<br/>Tìm tài liệu liên quan"]:::sql
+                    D2["Vector Database"]:::sqldb
+                    R2["Ngữ cảnh bổ sung<br/>Pinecone, Weaviate"]:::res
+                    T2 --> D2 --> R2
+                end
+                
+                subgraph EMB [ ]
+                    direction TB
+                    T3["Embedding Search<br/>Tìm kiếm theo ngữ nghĩa"]:::sql
+                    D3["NoSQL / Vector DB"]:::sqldb
+                    R3["Kết quả gần đúng<br/>MongoDB, Redis"]:::res
+                    T3 --> D3 --> R3
+                end
+                
+                style T2S fill:none,stroke:none
+                style RAG fill:none,stroke:none
+                style EMB fill:none,stroke:none
+        </div>
+    </div>
+
+    <!-- PHẦN 3 -->
+    <div class="section">
+        <h2>Phần 3 &mdash; Kiến trúc hệ thống & các thành phần:</h2>
+        <div class="mermaid">
+            flowchart TD
+                classDef item fill:#4b5563,stroke:#374151,color:#fff,rx:8px,ry:8px
+                classDef ai fill:#4f46e5,stroke:#4338ca,color:#fff,rx:8px,ry:8px
+                classDef db fill:#059669,stroke:#047857,color:#fff,rx:8px,ry:8px
+
+                subgraph LOP1 ["Lớp giao tiếp (Interface Layer)"]
+                    direction LR
+                    C1["Chat / API"]:::item
+                    C2["Web App"]:::item
+                    C3["SDK / CLI"]:::item
+                end
+
+                subgraph LOP2 ["Lớp AI (Intelligence Layer)"]
+                    direction LR
+                    A1["LLM<br/>GPT, Claude, Gemini"]:::ai
+                    A2["Orchestration<br/>LangChain, LlamaIndex"]:::ai
+                    A3["Function Calling<br/>Tool use / MCP"]:::ai
+                end
+
+                subgraph LOP3 ["Lớp dữ liệu (Data Layer)"]
+                    direction LR
+                    D1["SQL Database<br/>MySQL, PostgreSQL"]:::db
+                    D2["NoSQL Database<br/>MongoDB, Redis"]:::db
+                    D3["Vector Database<br/>Pinecone, Weaviate"]:::db
+                end
+
+                LOP1 --> LOP2
+                LOP2 --> LOP3
+                
+                style LOP1 fill:none,stroke:#52525b,stroke-width:2px,stroke-dasharray: 5 5
+                style LOP2 fill:none,stroke:#52525b,stroke-width:2px,stroke-dasharray: 5 5
+                style LOP3 fill:none,stroke:#52525b,stroke-width:2px,stroke-dasharray: 5 5
+        </div>
+        <p style="text-align: center; color: #9ca3af; margin-top: 15px; font-size: 14px;">Mỗi lớp giao tiếp qua API / connector chuẩn hóa</p>
+    </div>
+
+</body>
+</html>
