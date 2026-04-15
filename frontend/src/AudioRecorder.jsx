@@ -472,7 +472,8 @@ const AudioRecorder = () => {
     };
 
     // ── Speech Recognition ──
-    const toggleListening = () => {
+    const toggleListening = (e) => {
+        if (e) e.preventDefault();
         if (isListening) {
             recognitionRef.current?.stop();
             setIsListening(false);
@@ -485,28 +486,38 @@ const AudioRecorder = () => {
             return;
         }
 
-        const recognition = new SpeechRec();
-        recognition.lang = 'vi-VN';
-        recognition.interimResults = true;
-        
-        let initialText = inputText ? inputText + ' ' : '';
-        recognition.onstart = () => setIsListening(true);
-        recognition.onresult = (e) => {
-            const transcript = Array.from(e.results).map(res => res[0].transcript).join('');
-            setInputText(initialText + transcript);
-            if (textareaRef.current) {
-                textareaRef.current.style.height = 'auto';
-                textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
-            }
-        };
-        recognition.onerror = (e) => {
-            console.error("Lỗi nhận diện giọng nói:", e.error);
-            setIsListening(false);
-        };
-        recognition.onend = () => setIsListening(false);
+        try {
+            const recognition = new SpeechRec();
+            recognition.lang = 'vi-VN';
+            recognition.interimResults = true;
+            recognition.continuous = true;
+            
+            let initialText = inputText ? inputText + ' ' : '';
+            recognition.onstart = () => setIsListening(true);
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results).map(res => res[0].transcript).join('');
+                setInputText(initialText + transcript);
+                if (textareaRef.current) {
+                    textareaRef.current.style.height = 'auto';
+                    textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+                }
+            };
+            recognition.onerror = (event) => {
+                console.error("Lỗi nhận diện giọng nói:", event.error);
+                if (event.error === 'not-allowed') {
+                    toast.error("Vui lòng cho phép trình duyệt sử dụng Micro!");
+                }
+                setIsListening(false);
+            };
+            recognition.onend = () => setIsListening(false);
 
-        recognitionRef.current = recognition;
-        recognition.start();
+            recognitionRef.current = recognition;
+            recognition.start();
+        } catch (err) {
+            console.error("Start speech rec error:", err);
+            toast.error("Có lỗi xảy ra khi bật Micro!");
+            setIsListening(false);
+        }
     };
 
     // ── Settings Save
@@ -1032,7 +1043,7 @@ const AudioRecorder = () => {
                             placeholder="Hỏi PharmaVoice AI bất cứ điều gì..."
                         />
                         
-                        <button className="mic-btn" onClick={toggleListening} 
+                        <button type="button" className="mic-btn" onClick={toggleListening} 
                             style={{ background: 'transparent', border:'none', cursor:'pointer', padding: '8px', color: isListening ? '#ef4444' : '#64748b', marginRight: '4px' }} 
                             title={isListening ? "Nhấn để dừng ghi âm" : "Ghi âm giọng nói"}>
                             {isListening ? (
