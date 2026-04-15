@@ -87,10 +87,21 @@ const Dashboard = ({ onBack }) => {
     useEffect(() => {
         if (!currentUser || currentUser.role !== 'admin') return;
         const token = localStorage.getItem('token');
-        axios.get(`${API_URL}/dashboard`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(r => setRecords(r.data || []))
-            .catch(console.error)
-            .finally(() => setLoading(false));
+        
+        const fetchData = () => {
+            axios.get(`${API_URL}/dashboard`, { headers: { Authorization: `Bearer ${token}` } })
+                .then(r => setRecords(r.data || []))
+                .catch(console.error)
+                .finally(() => setLoading(false));
+        };
+
+        // Fetch immediately
+        fetchData();
+
+        // ── AUTO REFRESH (Real-time polling) ──
+        // Refresh API every 5 seconds without resetting 'loading' state
+        const interval = setInterval(fetchData, 5000);
+        return () => clearInterval(interval);
     }, []);
 
     /* ── Forbidden ── */

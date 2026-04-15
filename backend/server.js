@@ -98,14 +98,41 @@ async function updateCustomerWiki(customerIdentifier, newTranscriptionText, cust
         const displayName = customerName || customerIdentifier;
         console.log(`[Customer Wiki] Đang cập nhật hồ sơ: ${displayName} (${customerIdentifier})`);
 
-        const { data: existingWiki } = await supabase
+        // ① Try to find record by real phone first
+        let { data: existingWiki } = await supabase
             .from('customer_wiki')
             .select('*')
             .eq('customer_phone', customerIdentifier)
             .single();
 
+        // ② If no record found by phone, check if an orphan record exists
+        //    where customer_name matches but phone was set to the name (no-phone fallback)
+        if (!existingWiki && customerName) {
+            const { data: orphanRecords } = await supabase
+                .from('customer_wiki')
+                .select('*')
+                .eq('customer_name', customerName)
+                .neq('customer_phone', customerIdentifier);
+
+            if (orphanRecords && orphanRecords.length > 0) {
+                // Take the richest orphan (most recent / most content)
+                const orphan = orphanRecords.sort((a, b) =>
+                    (b.total_calls || 0) - (a.total_calls || 0))[0];
+
+                console.log(`[Customer Wiki] 🔁 Phát hiện hồ sơ trùng lặp (ID: ${orphan.id}). Đang gộp...`);
+
+                // Carry over accumulated call history from orphan
+                existingWiki = orphan;
+
+                // Delete all orphan records with same name but wrong phone
+                const orphanIds = orphanRecords.map(r => r.id);
+                await supabase.from('customer_wiki').delete().in('id', orphanIds);
+                console.log(`[Customer Wiki] 🗑️ Đã xóa ${orphanIds.length} bản ghi trùng lặp.`);
+            }
+        }
+
         const oldWikiContent = existingWiki ? existingWiki.wiki_content : "Khách hàng mới. Chưa có hồ sơ trước đây.";
-        const totalCalls = existingWiki ? existingWiki.total_calls : 0;
+        const totalCalls = existingWiki ? (existingWiki.total_calls || 0) : 0;
 
         const prompt = `Bạn là hệ thống Kho Trí Thức LLM Wiki của PharmaVoice. Nhiệm vụ của bạn là CẬP NHẬT HỒ SƠ Y TẾ / BỆNH LÝ của KHÁCH HÀNG dựa trên các cuộc gọi.
 
@@ -133,9 +160,10 @@ Hãy rà soát HỒ SƠ HIỆN TẠI và THÔNG TIN MỚI, sau đó VIẾT LẠI
         const result = await model.generateContent(prompt);
         const newWikiContent = result.response.text();
 
+        // ③ Upsert by real phone — now guaranteed no duplicates
         const { error: upsertErr } = await supabase.from('customer_wiki').upsert({
             customer_phone: customerIdentifier,
-            customer_name: customerName || null,
+            customer_name: customerName || displayName,
             wiki_content: newWikiContent,
             total_calls: totalCalls + 1,
             last_updated: new Date()
