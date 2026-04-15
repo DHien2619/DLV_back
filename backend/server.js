@@ -201,6 +201,22 @@ YÊU CẦU ĐẦU RA JSON CÓ CÁC TRƯỜNG SAU:
     }
 }
 
+// ── Auth Middleware ───────────────────────────────────────────
+const requireAdmin = (req, res, next) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({ message: 'Unauthorized: No token' });
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.role !== 'admin') {
+            return res.status(403).json({ message: 'Forbidden: Chỉ Admin mới được truy cập tính năng này.' });
+        }
+        req.user = decoded;
+        next();
+    } catch (e) {
+        return res.status(401).json({ message: 'Unauthorized: Token không hợp lệ' });
+    }
+};
+
 // ── ROUTES ────────────────────────────────────────────────────
 
 app.get('/', (req, res) => {
@@ -223,7 +239,7 @@ app.post('/register', async (req, res) => {
         }]).select().single();
         if (insertErr) throw insertErr;
 
-        const token = jwt.sign({ userId: newUser.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ userId: newUser.id, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: '8h' });
         res.status(201).json({ token, user: { id: newUser.id, name: newUser.name, email: newUser.email, image: newUser.image, role: newUser.role } });
     } catch (error) {
         console.error("Error registering user:", error.message);
@@ -241,7 +257,7 @@ app.post('/login', async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
 
-        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '8h' });
         res.json({ token, user: { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role } });
     } catch (error) {
         console.error("Error logging in user:", error.message);
@@ -402,6 +418,25 @@ app.post('/getall/:id', async (req, res) => {
     } catch (error) {
         console.error("Error fetching user data:", error.message);
         res.status(500).json({ message: "Internal server error." });
+    }
+});
+
+// ── Dashboard Analytics endpoint (Admin only) ──────────────
+app.get('/dashboard', requireAdmin, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        const { data, error } = await supabase
+            .from('transcriptions')
+            .select('id, audioURL, transcription, status, created_at, insights, user_id')
+            .order('created_at', { ascending: false })
+            .limit(200);  // Admin thấy TẤT CẢ nhân viên
+
+        if (error) throw error;
+        res.json(data || []);
+    } catch (error) {
+        console.error("Dashboard API error:", error.message);
+        res.status(500).json({ message: "Lỗi lấy dữ liệu Dashboard", error: error.message });
     }
 });
 
