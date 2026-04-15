@@ -21,7 +21,12 @@ try {
     
     if (clientEmail && privateKey) {
         // Hỗ trợ đọc từ biến môi trường (Vercel, Render)
-        privateKey = privateKey.replace(/\\n/g, '\n');
+        clientEmail = clientEmail.trim();
+        privateKey = privateKey.trim();
+        // Xử lý cả 2 trường hợp: literal \n (escaped) hoặc newline thật
+        if (!privateKey.includes('\n')) {
+            privateKey = privateKey.replace(/\\n/g, '\n');
+        }
         serviceAccountAuth = new JWT({
           email: clientEmail,
           key: privateKey,
