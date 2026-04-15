@@ -100,6 +100,10 @@ const Dashboard = ({ onBack }) => {
     const [searchName,     setSearchName]     = useState('');
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [exportingSheet, setExportingSheet] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [exportDateFrom,  setExportDateFrom]  = useState('');
+    const [exportDateTo,    setExportDateTo]    = useState('');
+    const [exportEmployee,  setExportEmployee]  = useState('');
 
     /* ── Admin guard ── */
     const stored     = localStorage.getItem('user');
@@ -234,16 +238,47 @@ const Dashboard = ({ onBack }) => {
         document.body.removeChild(link);
     };
 
+    // Lấy danh sách nhân viên duy nhất từ records
+    const employeeList = [...new Set(records.map(r => r.employee_name).filter(Boolean))];
+
     const exportToGoogleSheets = async () => {
         if (!currentUser || currentUser.role !== 'admin') {
             alert("Chỉ Quản trị viên mới có quyền đẩy dữ liệu lên Google Sheets.");
             return;
         }
-        
+
+        // Lọc data dựa theo lựa chọn trong modal
+        let exportRows = [...records];
+        if (exportDateFrom) {
+            exportRows = exportRows.filter(r => r.created_at && new Date(r.created_at) >= new Date(exportDateFrom));
+        }
+        if (exportDateTo) {
+            const end = new Date(exportDateTo);
+            end.setHours(23, 59, 59, 999);
+            exportRows = exportRows.filter(r => r.created_at && new Date(r.created_at) <= end);
+        }
+        if (exportEmployee) {
+            exportRows = exportRows.filter(r => r.employee_name === exportEmployee);
+        }
+
+        if (exportRows.length === 0) {
+            alert("Không có dữ liệu phù hợp với bộ lọc bạn chọn.");
+            return;
+        }
+
+        // Tạo tên Tab Sheet
+        let exportName = '';
+        if (exportEmployee) exportName += exportEmployee + ' ';
+        if (exportDateFrom && exportDateTo) exportName += `${exportDateFrom} đến ${exportDateTo}`;
+        else if (exportDateFrom) exportName += `từ ${exportDateFrom}`;
+        else if (exportDateTo) exportName += `đến ${exportDateTo}`;
+        if (!exportName.trim()) exportName = 'Tổng Hợp';
+
         try {
+            setShowExportModal(false);
             setExportingSheet(true);
             const token = localStorage.getItem('token');
-            const rowsPayload = filtered.map(r => ({
+            const rowsPayload = exportRows.map(r => ({
                 date: r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '',
                 employeeName: r.employee_name || 'N/A',
                 fileName: r.audioURL || 'N/A',
@@ -253,17 +288,13 @@ const Dashboard = ({ onBack }) => {
                 sentiment: r.insights?.customer_sentiment || '',
                 pains: (r.insights?.pain_points || []).join('; ')
             }));
-            
-            const reqBody = {
-                rows: rowsPayload,
-                exportName: searchDate ? `Ngày ${searchDate}` : (searchName ? `Lọc ${searchName}` : 'Tổng Hợp')
-            };
 
-            const res = await axios.post(`${API_URL}/export-sheets`, reqBody, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            if (window.confirm(`${res.data.message}\n\nBạn có muốn mở ngay Google Sheets để kiểm tra không?`)) {
+            const res = await axios.post(`${API_URL}/export-sheets`,
+                { rows: rowsPayload, exportName: exportName.trim() },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (window.confirm(`${res.data.message} (${exportRows.length} dòng)\n\nMở Google Sheets ngay không?`)) {
                 window.open(res.data.sheetUrl, '_blank');
             }
         } catch (err) {
@@ -298,13 +329,57 @@ const Dashboard = ({ onBack }) => {
                     </div>
                 </div>
                 <div className="dash-header-right" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <button className="dash-back-btn" disabled={exportingSheet} style={{ background: '#059669', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5,150,105,0.2)' }} onClick={exportToGoogleSheets}>
+                    <button className="dash-back-btn" disabled={exportingSheet}
+                        style={{ background: '#059669', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', boxShadow: '0 2px 4px rgba(5,150,105,0.2)' }}
+                        onClick={() => setShowExportModal(true)}>
                         {exportingSheet ? 'Đang xuất dữ liệu...' : 'Xuất Báo Cáo'}
                     </button>
                     <span className="dash-badge">{records.length} cuộc gọi</span>
                     <span className="dash-badge analyzed">{analyzed.length} đã phân tích</span>
                 </div>
             </header>
+
+            {/* ══ EXPORT MODAL ════════════════════════════════ */}
+            {showExportModal && (
+                <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <div style={{ background:'#fff', borderRadius:'12px', padding:'32px', width:'420px', boxShadow:'0 20px 60px rgba(0,0,0,0.2)', fontFamily:'Inter, sans-serif' }}>
+                        <div style={{ fontSize:'16px', fontWeight:700, color:'#0f172a', marginBottom:'6px' }}>Xuất Báo Cáo lên Google Sheets</div>
+                        <div style={{ fontSize:'13px', color:'#64748b', marginBottom:'24px' }}>Chọn khoảng thời gian và nhân viên cần xuất</div>
+
+                        <div style={{ marginBottom:'14px' }}>
+                            <label style={{ fontSize:'12px', fontWeight:600, color:'#475569', display:'block', marginBottom:'6px' }}>Từ ngày</label>
+                            <input type="date" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)}
+                                style={{ width:'100%', padding:'8px 10px', border:'1px solid #e2e8f0', borderRadius:'6px', fontSize:'13px', boxSizing:'border-box' }} />
+                        </div>
+
+                        <div style={{ marginBottom:'14px' }}>
+                            <label style={{ fontSize:'12px', fontWeight:600, color:'#475569', display:'block', marginBottom:'6px' }}>Đến ngày</label>
+                            <input type="date" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)}
+                                style={{ width:'100%', padding:'8px 10px', border:'1px solid #e2e8f0', borderRadius:'6px', fontSize:'13px', boxSizing:'border-box' }} />
+                        </div>
+
+                        <div style={{ marginBottom:'24px' }}>
+                            <label style={{ fontSize:'12px', fontWeight:600, color:'#475569', display:'block', marginBottom:'6px' }}>Nhân viên</label>
+                            <select value={exportEmployee} onChange={e => setExportEmployee(e.target.value)}
+                                style={{ width:'100%', padding:'8px 10px', border:'1px solid #e2e8f0', borderRadius:'6px', fontSize:'13px', background:'#fff', boxSizing:'border-box' }}>
+                                <option value="">-- Tất cả nhân viên --</option>
+                                {employeeList.map(emp => <option key={emp} value={emp}>{emp}</option>)}
+                            </select>
+                        </div>
+
+                        <div style={{ display:'flex', gap:'10px', justifyContent:'flex-end' }}>
+                            <button onClick={() => setShowExportModal(false)}
+                                style={{ padding:'8px 16px', borderRadius:'6px', border:'1px solid #e2e8f0', background:'#f8fafc', color:'#475569', fontWeight:600, fontSize:'13px', cursor:'pointer' }}>
+                                Huỷ
+                            </button>
+                            <button onClick={exportToGoogleSheets} disabled={exportingSheet}
+                                style={{ padding:'8px 16px', borderRadius:'6px', border:'none', background:'#059669', color:'white', fontWeight:600, fontSize:'13px', cursor:'pointer' }}>
+                                Xác nhận Xuất
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="dash-body">
 
