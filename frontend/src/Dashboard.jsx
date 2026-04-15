@@ -65,12 +65,39 @@ const Donut = ({ value, total, color, label }) => {
     );
 };
 
+/* ── Trend Svg ──────────────────────────────────────────── */
+const TrendSvg = ({ data }) => {
+    if (data.length === 0) return <p className="dash-empty">Không có dữ liệu xu hướng</p>;
+    if (data.length === 1) return <div style={{textAlign:'center', marginTop:30}}><span style={{fontSize:24, fontWeight:'bold', color:'#6366f1'}}>{data[0].val}</span><br/><span style={{fontSize:12, color:'#94a3b8'}}>{data[0].label}</span></div>;
+    
+    const w = 300, h = 100, padX = 20, padY = 20, max = 100, min = 0;
+    const getX = i => padX + (i / (data.length - 1)) * (w - padX * 2);
+    const getY = v => h - padY - ((v - min) / (max - min)) * (h - padY * 2);
+    const pts = data.map((d, i) => `${getX(i)},${getY(d.val)}`).join(' ');
+
+    return (
+        <svg viewBox={`0 0 ${w} ${h}`} style={{ width:'100%', height:'auto', minHeight:'100px', display:'block' }}>
+            <polyline points={pts} fill="none" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            {data.map((d, i) => (
+                <g key={i}>
+                    <circle cx={getX(i)} cy={getY(d.val)} r="4" fill="#fff" stroke="#6366f1" strokeWidth="2" />
+                    <text x={getX(i)} y={getY(d.val) - 8} fontSize="10" fill="#475569" textAnchor="middle">{d.val}</text>
+                    {(i === 0 || i === data.length - 1 || data.length < 6) && (
+                        <text x={getX(i)} y={h - 2} fontSize="9" fill="#94a3b8" textAnchor="middle">{d.label}</text>
+                    )}
+                </g>
+            ))}
+        </svg>
+    );
+};
+
 /* ═══ MAIN DASHBOARD ═══════════════════════════════════════ */
 const Dashboard = ({ onBack }) => {
     const [records,        setRecords]        = useState([]);
     const [loading,        setLoading]        = useState(true);
     const [filter,         setFilter]         = useState('all');
     const [searchDate,     setSearchDate]     = useState('');
+    const [searchName,     setSearchName]     = useState('');
     const [selectedRecord, setSelectedRecord] = useState(null);
 
     /* ── Admin guard ── */
@@ -99,8 +126,12 @@ const Dashboard = ({ onBack }) => {
         fetchData();
 
         // ── AUTO REFRESH (Real-time polling) ──
-        // Refresh API every 5 seconds without resetting 'loading' state
-        const interval = setInterval(fetchData, 5000);
+        // Refresh API every 5 seconds only when tab is active
+        const interval = setInterval(() => {
+            if (!document.hidden) {
+                fetchData();
+            }
+        }, 5000);
         return () => clearInterval(interval);
     }, []);
 
@@ -161,8 +192,46 @@ const Dashboard = ({ onBack }) => {
         if (filter === 'low_score'  && (r.insights?.call_score||0) >= 70)       return false;
         if (filter === 'no_insights'&& r.insights)                               return false;
         if (searchDate && !r.created_at?.startsWith(searchDate))                 return false;
+        if (searchName) {
+            const term = searchName.toLowerCase();
+            const fileName = (r.audioURL || '').toLowerCase();
+            const empName = (r.employee_name || '').toLowerCase();
+            if (!fileName.includes(term) && !empName.includes(term)) return false;
+        }
         return true;
     });
+
+    /* ── Trend Data ── */
+    const trendMap = {};
+    [...analyzed].sort((a,b) => new Date(a.created_at) - new Date(b.created_at)).forEach(r => {
+        const d = new Date(r.created_at).toLocaleDateString('vi-VN', { month:'2-digit', day:'2-digit' });
+        if (!trendMap[d]) trendMap[d] = { sum: 0, count: 0 };
+        trendMap[d].sum += (r.insights?.call_score || 0);
+        trendMap[d].count += 1;
+    });
+    const trendData = Object.keys(trendMap).map(l => ({ label: l, val: Math.round(trendMap[l].sum / trendMap[l].count) }));
+
+    const exportCSV = () => {
+        const headers = ["Ngày", "Nhân viên", "File Khách Hàng", "Điểm", "Sẵn sàng mua", "Cảm xúc", "Nỗi đau"];
+        const rows = filtered.map(r => {
+            const date = r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '';
+            const emp = r.employee_name || 'N/A';
+            const file = r.audioURL || 'N/A';
+            const score = r.insights?.call_score || '';
+            const ready = r.insights?.readiness_to_buy || '';
+            const sent = r.insights?.customer_sentiment || '';
+            const pains = (r.insights?.pain_points || []).join('; ');
+            return [date, emp, file, score, ready, sent, pains].map(v => `"${v}"`).join(',');
+        });
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows].join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `baocao_cuocgoi.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     /* ── Sentiment color helper ── */
     const sentColor = s => ({
@@ -187,7 +256,10 @@ const Dashboard = ({ onBack }) => {
                         <div className="dash-subtitle">Tổng quan chất lượng tư vấn &amp; Insight khách hàng</div>
                     </div>
                 </div>
-                <div className="dash-header-right">
+                <div className="dash-header-right" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button className="dash-back-btn" style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }} onClick={exportCSV}>
+                        📥 Tải CSV
+                    </button>
                     <span className="dash-badge">{records.length} cuộc gọi</span>
                     <span className="dash-badge analyzed">{analyzed.length} đã phân tích</span>
                 </div>
@@ -227,6 +299,17 @@ const Dashboard = ({ onBack }) => {
                             <Donut value={excellent} total={analyzed.length} color="#4ade80" label={`Xuất sắc (≥80)`} />
                             <Donut value={good}      total={analyzed.length} color="#facc15" label={`Khá (60–79)`} />
                             <Donut value={poor}      total={analyzed.length} color="#f87171" label={`Cần cải thiện`} />
+                        </div>
+                    </div>
+
+                    {/* Trend Chart */}
+                    <div className="dash-card">
+                        <div className="dash-card-title">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            Xu hướng điểm TB
+                        </div>
+                        <div style={{ paddingTop: '10px' }}>
+                            <TrendSvg data={trendData} />
                         </div>
                     </div>
 
@@ -298,6 +381,8 @@ const Dashboard = ({ onBack }) => {
                             Danh sách cuộc gọi
                         </div>
                         <div className="dash-filters">
+                            <input type="text" className="dash-date-input" placeholder="Tìm theo tên KH/nhân viên..." value={searchName}
+                                onChange={e => setSearchName(e.target.value)} style={{ minWidth:'180px' }} />
                             <input type="date" className="dash-date-input" value={searchDate}
                                 onChange={e => setSearchDate(e.target.value)} />
                             <select className="dash-filter-select" value={filter} onChange={e => setFilter(e.target.value)}>
@@ -306,8 +391,8 @@ const Dashboard = ({ onBack }) => {
                                 <option value="low_score">Điểm thấp (&lt;70)</option>
                                 <option value="no_insights">Chưa phân tích</option>
                             </select>
-                            {(filter !== 'all' || searchDate) && (
-                                <button className="dash-clear-btn" onClick={() => { setFilter('all'); setSearchDate(''); }}>
+                            {(filter !== 'all' || searchDate || searchName) && (
+                                <button className="dash-clear-btn" onClick={() => { setFilter('all'); setSearchDate(''); setSearchName(''); }}>
                                     ✕ Xóa filter
                                 </button>
                             )}
@@ -319,7 +404,8 @@ const Dashboard = ({ onBack }) => {
                             <thead>
                                 <tr>
                                     <th>Ngày</th>
-                                    <th>File</th>
+                                    <th>Nhân viên</th>
+                                    <th>File KH</th>
                                     <th>Điểm</th>
                                     <th>Sẵn sàng mua</th>
                                     <th>Cảm xúc</th>
@@ -339,6 +425,9 @@ const Dashboard = ({ onBack }) => {
                                         onClick={() => setSelectedRecord(selectedRecord?.id === r.id ? null : r)}>
                                         <td className="dash-td-date">
                                             {r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '—'}
+                                        </td>
+                                        <td style={{ fontSize:'13px', fontWeight:500, color:'#0f172a' }}>
+                                            {r.employee_name || 'N/A'}
                                         </td>
                                         <td className="dash-td-file" title={r.audioURL}>
                                             {(r.audioURL || 'N/A').substring(0, 28)}…
