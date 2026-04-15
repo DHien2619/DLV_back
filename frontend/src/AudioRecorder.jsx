@@ -56,6 +56,7 @@ const AudioRecorder = () => {
     const [tempUser, setTempUser] = useState({ name: '', image: '' });
 
     const [inputText, setInputText] = useState('');
+    const [isListening, setIsListening] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [pendingFiles, setPendingFiles] = useState([]); // danh sách file đang staged
 
@@ -97,6 +98,7 @@ const AudioRecorder = () => {
     const avatarInputRef = useRef(null);
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
+    const recognitionRef = useRef(null);
 
     // ── Grouped Sessions ──────────────────────────────────────
     const groupedChats = React.useMemo(() => {
@@ -467,6 +469,44 @@ const AudioRecorder = () => {
     };
     const handleKeyDown = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); }
+    };
+
+    // ── Speech Recognition ──
+    const toggleListening = () => {
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+            return;
+        }
+
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRec) {
+            toast.error("Trình duyệt của bạn không hỗ trợ tính năng nhận diện giọng nói!");
+            return;
+        }
+
+        const recognition = new SpeechRec();
+        recognition.lang = 'vi-VN';
+        recognition.interimResults = true;
+        
+        let initialText = inputText ? inputText + ' ' : '';
+        recognition.onstart = () => setIsListening(true);
+        recognition.onresult = (e) => {
+            const transcript = Array.from(e.results).map(res => res[0].transcript).join('');
+            setInputText(initialText + transcript);
+            if (textareaRef.current) {
+                textareaRef.current.style.height = 'auto';
+                textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+            }
+        };
+        recognition.onerror = (e) => {
+            console.error("Lỗi nhận diện giọng nói:", e.error);
+            setIsListening(false);
+        };
+        recognition.onend = () => setIsListening(false);
+
+        recognitionRef.current = recognition;
+        recognition.start();
     };
 
     // ── Settings Save
@@ -991,6 +1031,23 @@ const AudioRecorder = () => {
                             onKeyDown={handleKeyDown}
                             placeholder="Hỏi PharmaVoice AI bất cứ điều gì..."
                         />
+                        
+                        <button className="mic-btn" onClick={toggleListening} 
+                            style={{ background: 'transparent', border:'none', cursor:'pointer', padding: '8px', color: isListening ? '#ef4444' : '#64748b', marginRight: '4px' }} 
+                            title={isListening ? "Nhấn để dừng ghi âm" : "Ghi âm giọng nói"}>
+                            {isListening ? (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mic-pulsing">
+                                    <rect x="9" y="9" width="6" height="6" rx="1"></rect>
+                                    <path d="M5 3v18"></path><path d="M19 3v18"></path>
+                                </svg>
+                            ) : (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                    <line x1="12" y1="19" x2="12" y2="22"></line>
+                                </svg>
+                            )}
+                        </button>
 
                         <button className="send-btn" onClick={handleSendText}
                             disabled={(!inputText.trim() && pendingFiles.length === 0)} title="Gửi (Enter)">
