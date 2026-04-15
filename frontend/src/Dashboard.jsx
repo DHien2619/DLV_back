@@ -4,191 +4,176 @@ import './Dashboard.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-// ── Mini sparkline bar ────────────────────────────────────────
+/* ── Mini score bar ─────────────────────────────────────── */
 const ScoreBar = ({ score }) => {
-    const color = score >= 80 ? '#22c55e' : score >= 60 ? '#f59e0b' : '#ef4444';
+    const color = score >= 80 ? '#4ade80' : score >= 60 ? '#facc15' : '#f87171';
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '99px', overflow: 'hidden' }}>
-                <div style={{ width: `${score}%`, height: '100%', background: color, borderRadius: '99px', transition: 'width 0.8s ease' }} />
+        <div className="score-bar-wrap">
+            <div className="score-bar-track">
+                <div className="score-bar-fill" style={{ width: `${score}%`, background: color }} />
             </div>
-            <span style={{ fontSize: '12px', fontWeight: 700, color, minWidth: '30px' }}>{score}</span>
+            <span className="score-bar-label" style={{ color }}>{score}</span>
         </div>
     );
 };
 
-// ── Sentiment badge ───────────────────────────────────────────
+/* ── Sentiment badge ────────────────────────────────────── */
 const SentimentBadge = ({ sentiment }) => {
     const map = {
-        'Tích cực': { color: '#22c55e', bg: 'rgba(34,197,94,0.1)', icon: '😊' },
-        'Hợp tác': { color: '#818cf8', bg: 'rgba(129,140,248,0.1)', icon: '🤝' },
-        'Tiêu cực': { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', icon: '😠' },
-        'Khá khó tính': { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', icon: '😤' },
+        'Tích cực':          { cls: 'badge-green',  icon: '😊' },
+        'Hợp tác':           { cls: 'badge-indigo', icon: '🤝' },
+        'Tiêu cực':          { cls: 'badge-red',    icon: '😠' },
+        'Khá khó tính':      { cls: 'badge-yellow', icon: '😤' },
+        'Tích cực và Hợp tác':{ cls: 'badge-green', icon: '😊' },
     };
-    const style = map[sentiment] || { color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', icon: '❓' };
-    return (
-        <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: '4px',
-            padding: '2px 8px', borderRadius: '99px',
-            background: style.bg, color: style.color,
-            fontSize: '11px', fontWeight: 600
-        }}>
-            {style.icon} {sentiment || 'Chưa phân tích'}
-        </span>
-    );
+    const s = map[sentiment] || { cls: 'badge-gray', icon: '❓' };
+    return <span className={`badge ${s.cls}`}>{s.icon} {sentiment || 'Chưa rõ'}</span>;
 };
 
-// ── Readiness badge ───────────────────────────────────────────
+/* ── Readiness badge ────────────────────────────────────── */
 const ReadinessBadge = ({ level }) => {
-    const map = {
-        'Cao': { color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
-        'Trung Bình': { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-        'Thấp': { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
-    };
-    const style = map[level] || { color: '#9ca3af', bg: 'rgba(156,163,175,0.1)' };
-    return (
-        <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: '4px',
-            padding: '2px 8px', borderRadius: '99px',
-            background: style.bg, color: style.color,
-            fontSize: '11px', fontWeight: 600
-        }}>
-            🛒 {level || 'N/A'}
-        </span>
-    );
+    const map = { 'Cao': 'badge-green', 'Trung Bình': 'badge-yellow', 'Thấp': 'badge-red' };
+    return <span className={`badge ${map[level] || 'badge-gray'}`}>🛒 {level || 'N/A'}</span>;
 };
 
-// ── Mini donut chart ──────────────────────────────────────────
-const DonutProgress = ({ value, max, color, label }) => {
-    const pct = Math.min((value / max) * 100, 100);
-    const r = 28, circ = 2 * Math.PI * r;
-    const dash = (pct / 100) * circ;
+/* ── SVG Donut ──────────────────────────────────────────── */
+const Donut = ({ value, total, color, label }) => {
+    const pct = total > 0 ? Math.min((value / total) * 100, 100) : 0;
+    const r = 26, c = 2 * Math.PI * r;
+    const dash = (pct / 100) * c;
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <svg width="72" height="72" viewBox="0 0 72 72" style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
-                <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="8"
-                    strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-                    style={{ transition: 'stroke-dasharray 0.8s ease' }} />
-            </svg>
-            <div style={{ textAlign: 'center', marginTop: '-62px', position: 'relative', zIndex: 1 }}>
-                <div style={{ fontSize: '16px', fontWeight: 800, color }}>{value}</div>
+        <div className="donut-item">
+            <div style={{ position: 'relative', width: 68, height: 68 }}>
+                <svg viewBox="0 0 68 68" width="68" height="68" style={{ transform: 'rotate(-90deg)' }}>
+                    <circle cx="34" cy="34" r={r} fill="none"
+                        stroke="rgba(255,255,255,0.05)" strokeWidth="7" />
+                    <circle cx="34" cy="34" r={r} fill="none"
+                        stroke={color} strokeWidth="7"
+                        strokeDasharray={`${dash} ${c}`}
+                        strokeLinecap="round"
+                        style={{ transition: 'stroke-dasharray 1s cubic-bezier(0.4,0,0.2,1)' }} />
+                </svg>
+                <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <span className="donut-value-center" style={{ color }}>{value}</span>
+                </div>
             </div>
-            <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '28px', textAlign: 'center' }}>{label}</div>
+            <span className="donut-label">{label}</span>
         </div>
     );
 };
 
-// ── MAIN DASHBOARD ────────────────────────────────────────────
+/* ═══ MAIN DASHBOARD ═══════════════════════════════════════ */
 const Dashboard = ({ onBack }) => {
-    const [records, setRecords] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all');
-    const [searchDate, setSearchDate] = useState('');
+    const [records,        setRecords]        = useState([]);
+    const [loading,        setLoading]        = useState(true);
+    const [filter,         setFilter]         = useState('all');
+    const [searchDate,     setSearchDate]     = useState('');
     const [selectedRecord, setSelectedRecord] = useState(null);
-    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+
+    /* ── Admin guard ── */
+    const stored     = localStorage.getItem('user');
+    const currentUser = stored ? JSON.parse(stored) : null;
 
     useEffect(() => {
-        // ── Admin Guard ──────────────────────────────────────────
-        const stored = localStorage.getItem('user');
-        const userObj = stored ? JSON.parse(stored) : null;
-        if (!userObj || userObj.role !== 'admin') {
-            // Redirect về trang chính sau 2 giây
+        if (!currentUser || currentUser.role !== 'admin') {
             setTimeout(() => { window.location.href = '/AudioRecorder'; }, 2000);
-            setRecords([]);
             setLoading(false);
-            return;
         }
-
-        document.documentElement.setAttribute('data-theme', theme);
-    }, [theme]);
-
-    useEffect(() => {
-        const stored = localStorage.getItem('user');
-        const userObj = stored ? JSON.parse(stored) : null;
-        if (!userObj || userObj.role !== 'admin') return; // Đã xử lý ở trên
-
-        const token = localStorage.getItem('token');
-        axios.get(`${API_URL}/dashboard`, {
-            headers: { Authorization: `Bearer ${token}` }
-        }).then(res => {
-            setRecords(res.data || []);
-        }).catch(err => {
-            console.error('Dashboard load error:', err);
-        }).finally(() => setLoading(false));
     }, []);
 
-    // ── Compute analytics ─────────────────────────────────────
-    const analyzed = records.filter(r => r.insights);
-    const avgScore = analyzed.length
-        ? Math.round(analyzed.reduce((s, r) => s + (r.insights?.call_score || 0), 0) / analyzed.length)
-        : 0;
-    const highReadiness = analyzed.filter(r => r.insights?.readiness_to_buy === 'Cao').length;
-    const sentimentCounts = analyzed.reduce((acc, r) => {
-        const s = r.insights?.customer_sentiment || 'Khác';
-        acc[s] = (acc[s] || 0) + 1;
-        return acc;
-    }, {});
+    useEffect(() => {
+        if (!currentUser || currentUser.role !== 'admin') return;
+        const token = localStorage.getItem('token');
+        axios.get(`${API_URL}/dashboard`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => setRecords(r.data || []))
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, []);
 
-    // collect all pain points across all records
-    const allPains = analyzed.flatMap(r => r.insights?.pain_points || []);
-    const painFreq = allPains.reduce((acc, p) => { acc[p] = (acc[p] || 0) + 1; return acc; }, {});
-    const topPains = Object.entries(painFreq).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-    // collect all competitors
-    const allCompetitors = analyzed.flatMap(r => r.insights?.competitors_mentioned || []).filter(c => c && c !== '');
-    const compFreq = allCompetitors.reduce((acc, c) => { acc[c] = (acc[c] || 0) + 1; return acc; }, {});
-    const topCompetitors = Object.entries(compFreq).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-    // ── Filter records ────────────────────────────────────────
-    const filtered = records.filter(r => {
-        if (filter === 'high' && r.insights?.readiness_to_buy !== 'Cao') return false;
-        if (filter === 'low_score' && (r.insights?.call_score || 0) >= 70) return false;
-        if (filter === 'no_insights' && r.insights) return false;
-        if (searchDate && !r.created_at?.startsWith(searchDate)) return false;
-        return true;
-    });
-
-    // ── Forbidden screen ──────────────────────────────────────
-    const stored = localStorage.getItem('user');
-    const currentUser = stored ? JSON.parse(stored) : null;
+    /* ── Forbidden ── */
     if (!currentUser || currentUser.role !== 'admin') {
         return (
             <div style={{
-                minHeight: '100vh', background: '#0f1117',
+                minHeight: '100vh', background: '#080b12',
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'Inter, sans-serif', gap: '16px'
+                fontFamily: 'Inter, sans-serif', gap: '14px'
             }}>
-                <div style={{ fontSize: '64px' }}>🔒</div>
-                <h2 style={{ color: '#f1f5f9', fontSize: '24px', fontWeight: 800, margin: 0 }}>Không có quyền truy cập</h2>
-                <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Chỉ Admin mới được xem Dashboard.</p>
-                <p style={{ color: '#374151', fontSize: '12px' }}>Đang chuyển hướng về trang chính...</p>
+                <div style={{ fontSize: '56px' }}>🔒</div>
+                <h2 style={{ color: '#f8fafc', fontSize: '22px', fontWeight: 800 }}>Không có quyền truy cập</h2>
+                <p style={{ color: '#475569', fontSize: '13px' }}>Chỉ Admin mới được xem Dashboard.</p>
+                <p style={{ color: '#1e293b', fontSize: '12px' }}>Đang chuyển hướng về trang chính...</p>
             </div>
         );
     }
 
+    /* ── Loading ── */
     if (loading) return (
         <div className="dash-loading">
             <div className="dash-spinner" />
-            <p>Đang tải dữ liệu Dashboard...</p>
+            <p style={{ color: '#475569', fontSize: '13px' }}>Đang tải dữ liệu...</p>
         </div>
     );
 
+    /* ── Analytics compute ── */
+    const analyzed   = records.filter(r => r.insights);
+    const n          = analyzed.length || 1;
+    const avgScore   = analyzed.length
+        ? Math.round(analyzed.reduce((s, r) => s + (r.insights?.call_score || 0), 0) / analyzed.length)
+        : 0;
+    const highReady  = analyzed.filter(r => r.insights?.readiness_to_buy === 'Cao').length;
+    const positive   = analyzed.filter(r => ['Tích cực','Tích cực và Hợp tác'].includes(r.insights?.customer_sentiment)).length;
+
+    const sentimentMap = analyzed.reduce((a, r) => {
+        const s = r.insights?.customer_sentiment || 'Khác';
+        a[s] = (a[s] || 0) + 1; return a;
+    }, {});
+
+    const allPains  = analyzed.flatMap(r => r.insights?.pain_points || []);
+    const painFreq  = allPains.reduce((a, p) => { a[p] = (a[p]||0)+1; return a; }, {});
+    const topPains  = Object.entries(painFreq).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    const allComps  = analyzed.flatMap(r => r.insights?.competitors_mentioned || []).filter(Boolean);
+    const compFreq  = allComps.reduce((a, c) => { a[c] = (a[c]||0)+1; return a; }, {});
+    const topComps  = Object.entries(compFreq).sort((a,b)=>b[1]-a[1]).slice(0,4);
+
+    const excellent = analyzed.filter(r => (r.insights?.call_score||0) >= 80).length;
+    const good      = analyzed.filter(r => { const s=r.insights?.call_score||0; return s>=60&&s<80; }).length;
+    const poor      = analyzed.filter(r => (r.insights?.call_score||0) < 60 && r.insights).length;
+
+    /* ── Filtered list ── */
+    const filtered = records.filter(r => {
+        if (filter === 'high'       && r.insights?.readiness_to_buy !== 'Cao') return false;
+        if (filter === 'low_score'  && (r.insights?.call_score||0) >= 70)       return false;
+        if (filter === 'no_insights'&& r.insights)                               return false;
+        if (searchDate && !r.created_at?.startsWith(searchDate))                 return false;
+        return true;
+    });
+
+    /* ── Sentiment color helper ── */
+    const sentColor = s => ({
+        'Tích cực':'#4ade80','Tích cực và Hợp tác':'#4ade80',
+        'Hợp tác':'#818cf8','Tiêu cực':'#f87171','Khá khó tính':'#facc15'
+    }[s] || '#475569');
+
     return (
         <div className="dash-root">
-            {/* ── HEADER ── */}
+
+            {/* ══ HEADER ══════════════════════════════════════ */}
             <header className="dash-header">
                 <div className="dash-header-left">
                     <button className="dash-back-btn" onClick={onBack}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <polyline points="15 18 9 12 15 6" />
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <polyline points="15 18 9 12 15 6"/>
                         </svg>
                         Quay lại
                     </button>
                     <div>
-                        <h1 className="dash-title">📊 Dashboard Phân Tích</h1>
-                        <p className="dash-subtitle">Tổng quan chất lượng tư vấn & Insight khách hàng</p>
+                        <div className="dash-title">📊 Dashboard Phân Tích</div>
+                        <div className="dash-subtitle">Tổng quan chất lượng tư vấn &amp; Insight khách hàng</div>
                     </div>
                 </div>
                 <div className="dash-header-right">
@@ -197,231 +182,244 @@ const Dashboard = ({ onBack }) => {
                 </div>
             </header>
 
-            {/* ── KPI CARDS ── */}
-            <div className="dash-kpi-grid">
-                <div className="dash-kpi-card blue">
-                    <div className="kpi-icon">🎯</div>
-                    <div className="kpi-value">{avgScore}</div>
-                    <div className="kpi-label">Điểm TB Tư Vấn</div>
-                    <div className="kpi-sub">/ 100 điểm</div>
-                </div>
-                <div className="dash-kpi-card green">
-                    <div className="kpi-icon">🛒</div>
-                    <div className="kpi-value">{highReadiness}</div>
-                    <div className="kpi-label">Sẵn Sàng Mua Cao</div>
-                    <div className="kpi-sub">trên {analyzed.length} KH phân tích</div>
-                </div>
-                <div className="dash-kpi-card purple">
-                    <div className="kpi-icon">📞</div>
-                    <div className="kpi-value">{records.length}</div>
-                    <div className="kpi-label">Tổng Cuộc Gọi</div>
-                    <div className="kpi-sub">trong hệ thống</div>
-                </div>
-                <div className="dash-kpi-card orange">
-                    <div className="kpi-icon">😊</div>
-                    <div className="kpi-value">{sentimentCounts['Tích cực'] || 0}</div>
-                    <div className="kpi-label">KH Tích Cực</div>
-                    <div className="kpi-sub">cảm xúc tốt</div>
-                </div>
-            </div>
+            <div className="dash-body">
 
-            {/* ── ANALYTICS ROW ── */}
-            <div className="dash-analytics-row">
-                {/* Score distribution */}
-                <div className="dash-card">
-                    <h3 className="dash-card-title">📈 Phân Bố Điểm Chất Lượng</h3>
-                    <div className="score-donut-row">
-                        <DonutProgress value={analyzed.filter(r => (r.insights?.call_score||0) >= 80).length} max={analyzed.length || 1} color="#22c55e" label="Xuất sắc (≥80)" />
-                        <DonutProgress value={analyzed.filter(r => { const s = r.insights?.call_score||0; return s >= 60 && s < 80; }).length} max={analyzed.length || 1} color="#f59e0b" label="Khá (60-79)" />
-                        <DonutProgress value={analyzed.filter(r => (r.insights?.call_score||0) < 60).length} max={analyzed.length || 1} color="#ef4444" label="Cần cải thiện (<60)" />
-                    </div>
-                </div>
-
-                {/* Sentiment pie */}
-                <div className="dash-card">
-                    <h3 className="dash-card-title">💬 Cảm Xúc Khách Hàng</h3>
-                    <div className="sentiment-list">
-                        {Object.entries(sentimentCounts).map(([s, count]) => (
-                            <div key={s} className="sentiment-row">
-                                <SentimentBadge sentiment={s} />
-                                <div className="sentiment-bar-wrap">
-                                    <div className="sentiment-bar-fill" style={{
-                                        width: `${(count / (analyzed.length || 1)) * 100}%`,
-                                        background: s === 'Tích cực' ? '#22c55e' : s === 'Hợp tác' ? '#818cf8' : s === 'Tiêu cực' ? '#ef4444' : '#f59e0b'
-                                    }} />
-                                </div>
-                                <span className="sentiment-count">{count}</span>
+                {/* ══ KPI ═════════════════════════════════════ */}
+                <div className="dash-kpi-grid">
+                    {[
+                        { cls:'blue',   icon:'🎯', label:'Điểm TB Tư Vấn',    val:avgScore, sub:'/ 100 điểm' },
+                        { cls:'green',  icon:'🛒', label:'Sẵn Sàng Mua Cao',  val:highReady,sub:`trên ${analyzed.length} KH phân tích` },
+                        { cls:'purple', icon:'📞', label:'Tổng Cuộc Gọi',     val:records.length, sub:'trong hệ thống' },
+                        { cls:'orange', icon:'😊', label:'KH Tích Cực',       val:positive, sub:'cảm xúc tốt' },
+                    ].map(({ cls, icon, label, val, sub }) => (
+                        <div key={label} className={`dash-kpi-card ${cls}`}>
+                            <div className="kpi-top-row">
+                                <span className="kpi-label">{label}</span>
+                                <span className="kpi-icon-wrap">{icon}</span>
                             </div>
-                        ))}
-                        {Object.keys(sentimentCounts).length === 0 && <p className="dash-empty">Chưa có dữ liệu cảm xúc</p>}
-                    </div>
+                            <div className="kpi-value">{val}</div>
+                            <div className="kpi-sub">{sub}</div>
+                        </div>
+                    ))}
                 </div>
 
-                {/* Top pain points */}
-                <div className="dash-card">
-                    <h3 className="dash-card-title">🩺 Nỗi Đau Phổ Biến Nhất</h3>
-                    <div className="pain-list">
-                        {topPains.map(([pain, freq], idx) => (
-                            <div key={idx} className="pain-item">
-                                <span className="pain-rank">#{idx + 1}</span>
-                                <span className="pain-text">{pain}</span>
-                                <span className="pain-freq">{freq}x</span>
-                            </div>
-                        ))}
-                        {topPains.length === 0 && <p className="dash-empty">Chưa có dữ liệu</p>}
+                {/* ══ ANALYTICS ROW ═══════════════════════════ */}
+                <div className="dash-analytics-row">
+
+                    {/* Score distribution */}
+                    <div className="dash-card">
+                        <div className="dash-card-title">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            Phân bố điểm chất lượng
+                        </div>
+                        <div className="score-donut-row">
+                            <Donut value={excellent} total={analyzed.length} color="#4ade80" label={`Xuất sắc (≥80)`} />
+                            <Donut value={good}      total={analyzed.length} color="#facc15" label={`Khá (60–79)`} />
+                            <Donut value={poor}      total={analyzed.length} color="#f87171" label={`Cần cải thiện`} />
+                        </div>
                     </div>
-                    {topCompetitors.length > 0 && (
-                        <>
-                            <h3 className="dash-card-title" style={{ marginTop: '16px' }}>🏢 Đối Thủ Được Nhắc</h3>
-                            <div className="pain-list">
-                                {topCompetitors.map(([comp, freq], idx) => (
-                                    <div key={idx} className="pain-item">
-                                        <span className="pain-rank" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>🏷️</span>
-                                        <span className="pain-text">{comp}</span>
-                                        <span className="pain-freq" style={{ color: '#ef4444' }}>{freq}x</span>
+
+                    {/* Sentiment */}
+                    <div className="dash-card">
+                        <div className="dash-card-title">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                            Cảm xúc khách hàng
+                        </div>
+                        <div className="sentiment-list">
+                            {Object.entries(sentimentMap).sort((a,b)=>b[1]-a[1]).map(([s, cnt]) => (
+                                <div key={s} className="sentiment-row">
+                                    <span className="sentiment-name">{s}</span>
+                                    <div className="sentiment-bar-wrap">
+                                        <div className="sentiment-bar-fill"
+                                            style={{ width:`${(cnt/n)*100}%`, background: sentColor(s) }} />
                                     </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
+                                    <span className="sentiment-count">{cnt}</span>
+                                </div>
+                            ))}
+                            {Object.keys(sentimentMap).length === 0 &&
+                                <p className="dash-empty">Chưa có dữ liệu</p>}
+                        </div>
+                    </div>
 
-            {/* ── CALL TABLE ── */}
-            <div className="dash-card dash-table-card">
-                <div className="dash-table-header">
-                    <h3 className="dash-card-title">📋 Danh Sách Cuộc Gọi</h3>
-                    <div className="dash-filters">
-                        <input type="date" className="dash-date-input" value={searchDate}
-                            onChange={e => setSearchDate(e.target.value)}
-                            title="Lọc theo ngày" />
-                        <select className="dash-filter-select" value={filter} onChange={e => setFilter(e.target.value)}>
-                            <option value="all">Tất cả</option>
-                            <option value="high">Sẵn sàng mua cao</option>
-                            <option value="low_score">Điểm thấp (&lt;70)</option>
-                            <option value="no_insights">Chưa phân tích</option>
-                        </select>
-                        {(filter !== 'all' || searchDate) && (
-                            <button className="dash-clear-btn" onClick={() => { setFilter('all'); setSearchDate(''); }}>✕ Xóa filter</button>
+                    {/* Pain points & Competitors */}
+                    <div className="dash-card">
+                        <div className="dash-card-title">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                            Nỗi đau phổ biến
+                        </div>
+                        <div className="pain-list">
+                            {topPains.map(([pain, freq], idx) => (
+                                <div key={idx} className="pain-item">
+                                    <span className="pain-rank">#{idx+1}</span>
+                                    <span className="pain-text">{pain}</span>
+                                    <span className="pain-freq">{freq}x</span>
+                                </div>
+                            ))}
+                            {topPains.length === 0 && <p className="dash-empty">Chưa có dữ liệu</p>}
+                        </div>
+
+                        {topComps.length > 0 && (
+                            <>
+                                <div className="dash-section-divider" style={{ margin: '14px 0 12px' }} />
+                                <div className="dash-card-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                                    Đối thủ được nhắc
+                                </div>
+                                <div className="pain-list">
+                                    {topComps.map(([comp, freq], idx) => (
+                                        <div key={idx} className="pain-item">
+                                            <span className="pain-rank" style={{ background:'rgba(245,158,11,0.1)', color:'#fcd34d' }}>🏷</span>
+                                            <span className="pain-text">{comp}</span>
+                                            <span className="pain-freq" style={{ color:'#fcd34d' }}>{freq}x</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>
 
-                <div className="dash-table-wrap">
-                    <table className="dash-table">
-                        <thead>
-                            <tr>
-                                <th>Ngày</th>
-                                <th>File ghi âm</th>
-                                <th>Điểm</th>
-                                <th>Sẵn sàng mua</th>
-                                <th>Cảm xúc</th>
-                                <th>Nỗi đau</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 && (
-                                <tr><td colSpan="7" className="dash-empty" style={{ textAlign: 'center', padding: '32px' }}>Không tìm thấy cuộc gọi nào</td></tr>
+                {/* ══ CALL TABLE ══════════════════════════════ */}
+                <div className="dash-card dash-table-card">
+                    <div className="dash-table-header">
+                        <div className="dash-card-title" style={{ margin:0 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            Danh sách cuộc gọi
+                        </div>
+                        <div className="dash-filters">
+                            <input type="date" className="dash-date-input" value={searchDate}
+                                onChange={e => setSearchDate(e.target.value)} />
+                            <select className="dash-filter-select" value={filter} onChange={e => setFilter(e.target.value)}>
+                                <option value="all">Tất cả</option>
+                                <option value="high">Sẵn sàng mua cao</option>
+                                <option value="low_score">Điểm thấp (&lt;70)</option>
+                                <option value="no_insights">Chưa phân tích</option>
+                            </select>
+                            {(filter !== 'all' || searchDate) && (
+                                <button className="dash-clear-btn" onClick={() => { setFilter('all'); setSearchDate(''); }}>
+                                    ✕ Xóa filter
+                                </button>
                             )}
-                            {filtered.map((r, idx) => (
-                                <tr key={r.id || idx} className={`dash-tr ${selectedRecord?.id === r.id ? 'active' : ''}`}
-                                    onClick={() => setSelectedRecord(selectedRecord?.id === r.id ? null : r)}>
-                                    <td className="dash-td-date">
-                                        {r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '—'}
-                                    </td>
-                                    <td className="dash-td-file">
-                                        <span title={r.audioURL}>{r.audioURL?.substring(0, 30) || 'Không có tên'}...</span>
-                                    </td>
-                                    <td style={{ minWidth: '120px' }}>
-                                        {r.insights?.call_score != null
-                                            ? <ScoreBar score={r.insights.call_score} />
-                                            : <span className="dash-empty">Chưa phân tích</span>}
-                                    </td>
-                                    <td>
-                                        {r.insights?.readiness_to_buy
-                                            ? <ReadinessBadge level={r.insights.readiness_to_buy} />
-                                            : '—'}
-                                    </td>
-                                    <td>
-                                        {r.insights?.customer_sentiment
-                                            ? <SentimentBadge sentiment={r.insights.customer_sentiment} />
-                                            : '—'}
-                                    </td>
-                                    <td className="dash-td-pains">
-                                        {(r.insights?.pain_points || []).slice(0, 2).map((p, i) => (
-                                            <span key={i} className="pain-tag">{p}</span>
-                                        ))}
-                                    </td>
-                                    <td>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                                            style={{ transform: selectedRecord?.id === r.id ? 'rotate(180deg)' : 'none', transition: '0.2s', color: '#818cf8' }}>
-                                            <polyline points="6 9 12 15 18 9" />
-                                        </svg>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* ── DETAIL PANEL ── */}
-            {selectedRecord && (
-                <div className="dash-detail-panel">
-                    <div className="dash-detail-header">
-                        <h3>🔍 Chi Tiết Phân Tích</h3>
-                        <button className="dash-close-btn" onClick={() => setSelectedRecord(null)}>✕</button>
+                        </div>
                     </div>
-                    <div className="dash-detail-body">
-                        {selectedRecord.insights ? (
-                            <div className="dash-detail-grid">
-                                <div className="detail-block">
-                                    <div className="detail-label">🎯 Điểm Chất Lượng</div>
-                                    <div className="detail-score">{selectedRecord.insights.call_score}/100</div>
-                                    <ScoreBar score={selectedRecord.insights.call_score} />
-                                </div>
-                                <div className="detail-block">
-                                    <div className="detail-label">🛒 Sẵn Sàng Mua</div>
-                                    <div style={{ marginTop: '8px' }}><ReadinessBadge level={selectedRecord.insights.readiness_to_buy} /></div>
-                                </div>
-                                <div className="detail-block">
-                                    <div className="detail-label">💬 Cảm Xúc</div>
-                                    <div style={{ marginTop: '8px' }}><SentimentBadge sentiment={selectedRecord.insights.customer_sentiment} /></div>
-                                </div>
-                                <div className="detail-block full-width">
-                                    <div className="detail-label">🩺 Nỗi Đau Khách Hàng</div>
-                                    <div className="detail-tags">
-                                        {(selectedRecord.insights.pain_points || []).map((p, i) => (
-                                            <span key={i} className="pain-tag">{p}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="detail-block full-width">
-                                    <div className="detail-label">💡 Nhu Cầu</div>
-                                    <div className="detail-tags">
-                                        {(selectedRecord.insights.needs || []).map((n, i) => (
-                                            <span key={i} className="need-tag">{n}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                                {(selectedRecord.insights.competitors_mentioned || []).length > 0 && (
-                                    <div className="detail-block full-width">
-                                        <div className="detail-label">🏢 Đối Thủ Được Nhắc Đến</div>
-                                        <div className="detail-tags">
-                                            {selectedRecord.insights.competitors_mentioned.map((c, i) => (
-                                                <span key={i} className="comp-tag">{c}</span>
+
+                    <div className="dash-table-wrap">
+                        <table className="dash-table">
+                            <thead>
+                                <tr>
+                                    <th>Ngày</th>
+                                    <th>File</th>
+                                    <th>Điểm</th>
+                                    <th>Sẵn sàng mua</th>
+                                    <th>Cảm xúc</th>
+                                    <th>Nỗi đau</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.length === 0 && (
+                                    <tr><td colSpan="7" className="dash-empty" style={{ padding:'28px', textAlign:'center' }}>
+                                        Không tìm thấy cuộc gọi nào
+                                    </td></tr>
+                                )}
+                                {filtered.map((r, idx) => (
+                                    <tr key={r.id || idx}
+                                        className={`dash-tr ${selectedRecord?.id === r.id ? 'active' : ''}`}
+                                        onClick={() => setSelectedRecord(selectedRecord?.id === r.id ? null : r)}>
+                                        <td className="dash-td-date">
+                                            {r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '—'}
+                                        </td>
+                                        <td className="dash-td-file" title={r.audioURL}>
+                                            {(r.audioURL || 'N/A').substring(0, 28)}…
+                                        </td>
+                                        <td style={{ minWidth: 110 }}>
+                                            {r.insights?.call_score != null
+                                                ? <ScoreBar score={r.insights.call_score} />
+                                                : <span className="dash-empty">—</span>}
+                                        </td>
+                                        <td>{r.insights?.readiness_to_buy
+                                            ? <ReadinessBadge level={r.insights.readiness_to_buy} />
+                                            : <span className="dash-empty">—</span>}</td>
+                                        <td>{r.insights?.customer_sentiment
+                                            ? <SentimentBadge sentiment={r.insights.customer_sentiment} />
+                                            : <span className="dash-empty">—</span>}</td>
+                                        <td className="dash-td-pains">
+                                            {(r.insights?.pain_points || []).slice(0,2).map((p,i) => (
+                                                <span key={i} className="pain-tag">{p}</span>
                                             ))}
+                                        </td>
+                                        <td>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2"
+                                                style={{ transform: selectedRecord?.id === r.id ? 'rotate(180deg)':'none', transition:'0.2s' }}>
+                                                <polyline points="6 9 12 15 18 9"/>
+                                            </svg>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* ══ DETAIL PANEL ════════════════════════════ */}
+                {selectedRecord && (
+                    <div className="dash-detail-panel">
+                        <div className="dash-detail-header">
+                            <h3>🔍 Chi tiết phân tích</h3>
+                            <button className="dash-close-btn" onClick={() => setSelectedRecord(null)}>✕</button>
+                        </div>
+                        <div className="dash-detail-body">
+                            {selectedRecord.insights ? (
+                                <div className="dash-detail-grid">
+                                    <div className="detail-block">
+                                        <div className="detail-label">🎯 Điểm chất lượng</div>
+                                        <div className="detail-score">{selectedRecord.insights.call_score}<span style={{ fontSize:'14px', color:'#334155' }}>/100</span></div>
+                                        <ScoreBar score={selectedRecord.insights.call_score} />
+                                    </div>
+                                    <div className="detail-block">
+                                        <div className="detail-label">🛒 Sẵn sàng mua</div>
+                                        <div style={{ marginTop:'10px' }}>
+                                            <ReadinessBadge level={selectedRecord.insights.readiness_to_buy} />
                                         </div>
                                     </div>
-                                )}
-                            </div>
-                        ) : (
-                            <p className="dash-empty">Cuộc gọi này chưa được phân tích. Upload lại hoặc chạy backfill.</p>
-                        )}
+                                    <div className="detail-block">
+                                        <div className="detail-label">💬 Cảm xúc KH</div>
+                                        <div style={{ marginTop:'10px' }}>
+                                            <SentimentBadge sentiment={selectedRecord.insights.customer_sentiment} />
+                                        </div>
+                                    </div>
+                                    <div className="detail-block full-width">
+                                        <div className="detail-label">🩺 Nỗi đau khách hàng</div>
+                                        <div className="detail-tags">
+                                            {(selectedRecord.insights.pain_points || []).map((p,i) =>
+                                                <span key={i} className="pain-tag">{p}</span>)}
+                                        </div>
+                                    </div>
+                                    <div className="detail-block full-width">
+                                        <div className="detail-label">💡 Nhu cầu</div>
+                                        <div className="detail-tags">
+                                            {(selectedRecord.insights.needs || []).map((n,i) =>
+                                                <span key={i} className="need-tag">{n}</span>)}
+                                        </div>
+                                    </div>
+                                    {(selectedRecord.insights.competitors_mentioned || []).filter(Boolean).length > 0 && (
+                                        <div className="detail-block full-width">
+                                            <div className="detail-label">🏢 Đối thủ được nhắc</div>
+                                            <div className="detail-tags">
+                                                {selectedRecord.insights.competitors_mentioned.map((c,i) =>
+                                                    <span key={i} className="comp-tag">{c}</span>)}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="dash-empty">Cuộc gọi này chưa được phân tích.</p>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+
+            </div>{/* end dash-body */}
         </div>
     );
 };
