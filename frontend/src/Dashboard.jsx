@@ -299,10 +299,7 @@ const Dashboard = ({ onBack }) => {
                 </div>
                 <div className="dash-header-right" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <button className="dash-back-btn" disabled={exportingSheet} style={{ background: '#059669', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5,150,105,0.2)' }} onClick={exportToGoogleSheets}>
-                        {exportingSheet ? '⏳ Đang đồng bộ...' : '🚀 Bắn lên Google Sheets'}
-                    </button>
-                    <button className="dash-back-btn" style={{ background: '#f8fafc', color: '#0f172a', border: '1px solid #cbd5e1', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }} onClick={exportCSV}>
-                        📥 Tải Máy Cục Bộ
+                        {exportingSheet ? 'Đang xuất dữ liệu...' : 'Xuất Báo Cáo'}
                     </button>
                     <span className="dash-badge">{records.length} cuộc gọi</span>
                     <span className="dash-badge analyzed">{analyzed.length} đã phân tích</span>
