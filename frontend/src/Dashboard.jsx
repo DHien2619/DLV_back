@@ -99,6 +99,7 @@ const Dashboard = ({ onBack }) => {
     const [searchDate,     setSearchDate]     = useState('');
     const [searchName,     setSearchName]     = useState('');
     const [selectedRecord, setSelectedRecord] = useState(null);
+    const [exportingSheet, setExportingSheet] = useState(false);
 
     /* ── Admin guard ── */
     const stored     = localStorage.getItem('user');
@@ -233,6 +234,46 @@ const Dashboard = ({ onBack }) => {
         document.body.removeChild(link);
     };
 
+    const exportToGoogleSheets = async () => {
+        if (!currentUser || currentUser.role !== 'admin') {
+            alert("Chỉ Quản trị viên mới có quyền đẩy dữ liệu lên Google Sheets.");
+            return;
+        }
+        
+        try {
+            setExportingSheet(true);
+            const token = localStorage.getItem('token');
+            const rowsPayload = filtered.map(r => ({
+                date: r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '',
+                employeeName: r.employee_name || 'N/A',
+                fileName: r.audioURL || 'N/A',
+                id: r.id || '',
+                score: r.insights?.call_score || '',
+                readiness: r.insights?.readiness_to_buy || '',
+                sentiment: r.insights?.customer_sentiment || '',
+                pains: (r.insights?.pain_points || []).join('; ')
+            }));
+            
+            const reqBody = {
+                rows: rowsPayload,
+                exportName: searchDate ? `Ngày ${searchDate}` : (searchName ? `Lọc ${searchName}` : 'Tổng Hợp')
+            };
+
+            const res = await axios.post(`${API_URL}/export-sheets`, reqBody, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            if (window.confirm(`${res.data.message}\n\nBạn có muốn mở ngay Google Sheets để kiểm tra không?`)) {
+                window.open(res.data.sheetUrl, '_blank');
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Lỗi xuất Google Sheets: " + (err.response?.data?.message || err.message));
+        } finally {
+            setExportingSheet(false);
+        }
+    };
+
     /* ── Sentiment color helper ── */
     const sentColor = s => ({
         'Tích cực':'#4ade80','Tích cực và Hợp tác':'#4ade80',
@@ -257,8 +298,11 @@ const Dashboard = ({ onBack }) => {
                     </div>
                 </div>
                 <div className="dash-header-right" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <button className="dash-back-btn" style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }} onClick={exportCSV}>
-                        📥 Tải CSV
+                    <button className="dash-back-btn" disabled={exportingSheet} style={{ background: '#059669', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5,150,105,0.2)' }} onClick={exportToGoogleSheets}>
+                        {exportingSheet ? '⏳ Đang đồng bộ...' : '🚀 Bắn lên Google Sheets'}
+                    </button>
+                    <button className="dash-back-btn" style={{ background: '#f8fafc', color: '#0f172a', border: '1px solid #cbd5e1', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }} onClick={exportCSV}>
+                        📥 Tải Máy Cục Bộ
                     </button>
                     <span className="dash-badge">{records.length} cuộc gọi</span>
                     <span className="dash-badge analyzed">{analyzed.length} đã phân tích</span>

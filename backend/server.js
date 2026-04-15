@@ -11,6 +11,34 @@ const os = require('os');
 const supabase = require('./db/supabaseClient');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { GoogleAIFileManager } = require("@google/generative-ai/server");
+const { GoogleSpreadsheet } = require('google-spreadsheet');
+const { JWT } = require('google-auth-library');
+
+let serviceAccountAuth;
+try {
+    let clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+    let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+    
+    if (clientEmail && privateKey) {
+        // Hỗ trợ đọc từ biến môi trường (Vercel, Render)
+        privateKey = privateKey.replace(/\\n/g, '\n');
+        serviceAccountAuth = new JWT({
+          email: clientEmail,
+          key: privateKey,
+          scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+    } else {
+        // Đọc từ file local khi dev
+        const creds = require('./google-credentials.json');
+        serviceAccountAuth = new JWT({
+          email: creds.client_email,
+          key: creds.private_key,
+          scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+    }
+} catch(e) {
+    console.log("No google credentials found (env or local). Google Sheets disabled.");
+}
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
@@ -468,6 +496,40 @@ app.get('/dashboard', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error("Dashboard API error:", error.message);
         res.status(500).json({ message: "Lỗi lấy dữ liệu Dashboard", error: error.message });
+    }
+});
+
+// EXPORT TO GOOGLE SHEETS
+app.post('/export-sheets', requireAdmin, async (req, res) => {
+    try {
+        const { rows, exportName } = req.body;
+        if (!serviceAccountAuth) return res.status(500).json({ message: "Chưa cấu hình Google Credentials trên Server" });
+        if (!rows || !rows.length) return res.status(400).json({ message: "Không có dữ liệu để xuất" });
+
+        const SPREADSHEET_ID = '1hhIMdrlbA1fuOvW9Ky7jUfV2t3VrSBjbDWJ-YY4EZSc';
+        const doc = new GoogleSpreadsheet(SPREADSHEET_ID, serviceAccountAuth);
+        await doc.loadInfo(); 
+        
+        const sheetTitle = `Báo cáo ${exportName || 'Mới'}`;
+        
+        let targetSheet = doc.sheetsByTitle[sheetTitle];
+        if (!targetSheet) {
+            targetSheet = await doc.addSheet({ title: sheetTitle, headerValues: ['Ngày', 'Nhân Viên', 'File Cuộc Gọi', 'ID Cuộc Gọi', 'Điểm KPI', 'Tỷ Lệ Mua', 'Cảm Xúc', 'Nỗi Đau / Nhu Cầu'] });
+        }
+        
+        const rowsToAdd = rows.map(r => [
+            r.date, r.employeeName, r.fileName, r.id, r.score, r.readiness, r.sentiment, r.pains
+        ]);
+
+        await targetSheet.addRows(rowsToAdd);
+        res.json({ 
+            message: "Đã đồng bộ lên Google Sheets thành công!", 
+            sheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=${targetSheet.sheetId}` 
+        });
+
+    } catch (e) {
+        console.error("Lỗi Export Sheet:", e);
+        res.status(500).json({ message: "Lỗi kết nối API Google Sheets. Hãy mờ Share cho client_email", error: e.message });
     }
 });
 
