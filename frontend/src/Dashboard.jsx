@@ -105,8 +105,9 @@ const Dashboard = ({ onBack }) => {
     const [exportDateTo,    setExportDateTo]    = useState('');
     const [exportEmployee,  setExportEmployee]  = useState('');
     // Bộ lọc thời gian Dashboard
-    const [periodMode,  setPeriodMode]  = useState('all');   // all | day | month | quarter | year
-    const [periodValue, setPeriodValue] = useState('');       // giá trị tương ứng
+    const [periodMode,  setPeriodMode]  = useState('all');
+    const [periodValue, setPeriodValue] = useState('');
+    const [activeTab,   setActiveTab]   = useState('overview'); // 'overview' | 'employees'
 
     /* ── Admin guard ── */
     const stored     = localStorage.getItem('user');
@@ -189,14 +190,26 @@ const Dashboard = ({ onBack }) => {
         ? Math.round(analyzed.reduce((s, r) => s + (r.insights?.call_score || 0), 0) / analyzed.length)
         : 0;
     const highReady  = analyzed.filter(r => r.insights?.readiness_to_buy === 'Cao').length;
-    const positive   = analyzed.filter(r => ['Tích cực','Tích cực và Hợp tác'].includes(r.insights?.customer_sentiment)).length;
+    const positive   = analyzed.filter(r => ['Tích cực','Hợp tác'].includes(r.insights?.customer_sentiment)).length;
+
+    /* Kỳ này: sắn sàng mua CAO mà có pain Nặng → uu tiên gọi lại */
+    const priorityCallbacks = analyzed.filter(r => {
+        if (r.insights?.readiness_to_buy !== 'Cao') return false;
+        const pp = r.insights?.pain_points || [];
+        // hỗ trợ cả format cũ (string) và mới (object)
+        return pp.some(p => (typeof p === 'object' ? p.severity : '') === 'Nặng' ||
+                            (typeof p === 'string'  ? true : false));
+    }).slice(0, 10);
 
     const sentimentMap = analyzed.reduce((a, r) => {
         const s = r.insights?.customer_sentiment || 'Khác';
         a[s] = (a[s] || 0) + 1; return a;
     }, {});
 
-    const allPains  = analyzed.flatMap(r => r.insights?.pain_points || []);
+    // hỗ trợ cả pain_points là string[] (cũ) lẫn object[] (mới)
+    const allPains = analyzed.flatMap(r => (r.insights?.pain_points || []).map(p =>
+        typeof p === 'object' ? p.issue : p
+    ));
     const painFreq  = allPains.reduce((a, p) => { a[p] = (a[p]||0)+1; return a; }, {});
     const topPains  = Object.entries(painFreq).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
@@ -331,6 +344,28 @@ const Dashboard = ({ onBack }) => {
         'Hợp tác':'#818cf8','Tiêu cực':'#f87171','Khá khó tính':'#facc15'
     }[s] || '#475569');
 
+    /* ── Employee stats ── */
+    const employeeStats = employeeList.map(emp => {
+        const empRecords = records.filter(r => r.employee_name === emp && inPeriod(r));
+        const empAnalyzed = empRecords.filter(r => r.insights);
+        const avgScore = empAnalyzed.length
+            ? Math.round(empAnalyzed.reduce((s, r) => s + (r.insights?.call_score || 0), 0) / empAnalyzed.length)
+            : null;
+        const readinessHigh = empAnalyzed.filter(r => r.insights?.readiness_to_buy === 'Cao').length;
+        const positive = empAnalyzed.filter(r => ['Tích cực','Tích cực và Hợp tác'].includes(r.insights?.customer_sentiment)).length;
+        const breakdown = { clarity:0, professionalism:0, empathy:0, problem_solving:0, efficiency:0 };
+        let breakdownCount = 0;
+        empAnalyzed.forEach(r => {
+            const bd = r.insights?.scoring_breakdown;
+            if (bd) {
+                Object.keys(breakdown).forEach(k => { if (bd[k]) breakdown[k] += bd[k]; });
+                breakdownCount++;
+            }
+        });
+        if (breakdownCount > 0) Object.keys(breakdown).forEach(k => { breakdown[k] = +(breakdown[k] / breakdownCount).toFixed(1); });
+        return { emp, total: empRecords.length, analyzed: empAnalyzed.length, avgScore, readinessHigh, positive, breakdown, hasBreakdown: breakdownCount > 0 };
+    }).sort((a, b) => (b.avgScore || 0) - (a.avgScore || 0));
+
     return (
         <div className="dash-root">
 
@@ -454,6 +489,108 @@ const Dashboard = ({ onBack }) => {
             )}
 
             <div className="dash-body">
+
+                {/* ══ TAB BAR ══════════════════════════════════ */}
+                <div style={{ display:'flex', gap:'4px', marginBottom:'20px', borderBottom:'2px solid #e2e8f0', paddingBottom:'0' }}>
+                    {[
+                        { id:'overview',  label:'Tổng quan' },
+                        { id:'employees', label:`Nhân sự (${employeeList.length})` },
+                    ].map(tab => (
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                            style={{ padding:'8px 18px', fontSize:'13px', fontWeight:600, border:'none', background:'none', cursor:'pointer', borderBottom: activeTab === tab.id ? '2px solid #6366f1' : '2px solid transparent', color: activeTab === tab.id ? '#6366f1' : '#64748b', marginBottom:'-2px', transition:'all 0.15s' }}>
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* ══ EMPLOYEE TAB ════════════════════════════ */}
+                {activeTab === 'employees' && (
+                    <div>
+                        {employeeStats.length === 0 && <p style={{color:'#94a3b8', textAlign:'center', padding:'40px'}}>Chưa có dữ liệu nhân sự</p>}
+                        {employeeStats.map((stat, idx) => (
+                            <div key={stat.emp} className="dash-card" style={{ marginBottom:'16px' }}>
+                                <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'16px' }}>
+                                    <div style={{ width:36, height:36, borderRadius:'50%', background:'#6366f1', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:'14px', flexShrink:0 }}>
+                                        {idx+1}
+                                    </div>
+                                    <div style={{ flex:1 }}>
+                                        <div style={{ fontWeight:700, fontSize:'14px', color:'#0f172a' }}>{stat.emp}</div>
+                                        <div style={{ fontSize:'12px', color:'#64748b' }}>{stat.total} cuộc gọi · {stat.analyzed} đã phân tích · {stat.readinessHigh} KH sẵn sàng mua cao</div>
+                                    </div>
+                                    <div style={{ textAlign:'right' }}>
+                                        {stat.avgScore !== null ? (
+                                            <>
+                                                <div style={{ fontSize:'28px', fontWeight:800, color: stat.avgScore >= 80 ? '#059669' : stat.avgScore >= 60 ? '#d97706' : '#dc2626' }}>{stat.avgScore}</div>
+                                                <div style={{ fontSize:'11px', color:'#94a3b8' }}>/ 100 điểm TB</div>
+                                            </>
+                                        ) : <span style={{ fontSize:'12px', color:'#94a3b8' }}>Chưa phân tích</span>}
+                                    </div>
+                                </div>
+
+                                {stat.hasBreakdown && (
+                                    <div style={{ display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:'8px' }}>
+                                        {[
+                                            { key:'clarity',       label:'Rõ ràng' },
+                                            { key:'professionalism',label:'Chuyên nghiệp' },
+                                            { key:'empathy',        label:'Thấu cảm' },
+                                            { key:'problem_solving',label:'Xử lý VĐ' },
+                                            { key:'efficiency',     label:'Hiệu quả' },
+                                        ].map(({ key, label }) => {
+                                            const val = stat.breakdown[key] || 0;
+                                            const color = val >= 8 ? '#059669' : val >= 6 ? '#d97706' : '#dc2626';
+                                            return (
+                                                <div key={key} style={{ background:'#f8fafc', borderRadius:'8px', padding:'10px 8px', textAlign:'center', border:'1px solid #e2e8f0' }}>
+                                                    <div style={{ fontSize:'18px', fontWeight:800, color }}>{val}</div>
+                                                    <div style={{ fontSize:'10px', color:'#64748b', marginTop:'2px' }}>{label}</div>
+                                                    <div style={{ height:'3px', background:'#e2e8f0', borderRadius:'2px', marginTop:'6px' }}>
+                                                        <div style={{ height:'100%', width:`${val*10}%`, background:color, borderRadius:'2px', transition:'width 0.5s' }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                {!stat.hasBreakdown && stat.analyzed > 0 && (
+                                    <p style={{ fontSize:'12px', color:'#94a3b8', margin:0 }}>
+                                        Dữ liệu 5 tiêu chí sẽ có ở các cuộc gọi mới sau khi hệ thống cập nhật.
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {activeTab === 'overview' && <div>
+
+                {/* ══ PRIORITY CALLBACKS ══════════════════════ */}
+                {priorityCallbacks.length > 0 && (
+                    <div className="dash-card" style={{ marginBottom:'20px', border:'1.5px solid #fca5a5', background:'#fff5f5' }}>
+                        <div className="dash-card-title" style={{ color:'#dc2626' }}>
+                            🔥 Cần gọi lại ngay — KH sẵn sàng mua & đang đau nặng ({priorityCallbacks.length})
+                        </div>
+                        <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginTop:'10px' }}>
+                            {priorityCallbacks.map((r, i) => {
+                                const pp = (r.insights?.pain_points || []);
+                                const heavyPain = pp.find(p => typeof p === 'object' && p.severity === 'Nặng') || pp[0];
+                                const painText = typeof heavyPain === 'object' ? heavyPain.issue : heavyPain;
+                                const signal = r.insights?.readiness_signals || '';
+                                return (
+                                    <div key={r.id || i} onClick={() => setSelectedRecord(r)}
+                                        style={{ display:'flex', alignItems:'center', gap:'12px', background:'#fff', border:'1px solid #fca5a5', borderRadius:'8px', padding:'10px 14px', cursor:'pointer' }}>
+                                        <div style={{ flex:1 }}>
+                                            <div style={{ fontWeight:600, fontSize:'13px', color:'#0f172a' }}>
+                                                {r.employee_name || 'N/A'} · {r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : ''}
+                                            </div>
+                                            {painText && <div style={{ fontSize:'12px', color:'#dc2626', marginTop:'2px' }}>⚠️ {painText}</div>}
+                                            {signal && <div style={{ fontSize:'11px', color:'#64748b', marginTop:'2px', fontStyle:'italic' }}>"{signal}"</div>}
+                                        </div>
+                                        <span style={{ fontSize:'11px', fontWeight:700, color:'#fff', background:'#dc2626', padding:'3px 10px', borderRadius:'12px' }}>Gọi lại</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {/* ══ KPI ═════════════════════════════════════ */}
                 <div className="dash-kpi-grid">
@@ -659,6 +796,12 @@ const Dashboard = ({ onBack }) => {
                         <div className="dash-detail-body">
                             {selectedRecord.insights ? (
                                 <div className="dash-detail-grid">
+                                    <div className="detail-block full-width">
+                                        <div className="detail-label">🗒️ Tóm tắt cuộc gọi</div>
+                                        <p style={{fontSize:'13px',color:'#334155',lineHeight:'1.6',margin:'8px 0 0'}}>
+                                            {selectedRecord.insights.call_summary || '—'}
+                                        </p>
+                                    </div>
                                     <div className="detail-block">
                                         <div className="detail-label">🎯 Điểm chất lượng</div>
                                         <div className="detail-score">{selectedRecord.insights.call_score}<span style={{ fontSize:'14px', color:'#334155' }}>/100</span></div>
@@ -669,18 +812,42 @@ const Dashboard = ({ onBack }) => {
                                         <div style={{ marginTop:'10px' }}>
                                             <ReadinessBadge level={selectedRecord.insights.readiness_to_buy} />
                                         </div>
+                                        {selectedRecord.insights.readiness_signals && (
+                                            <p style={{fontSize:'11px',color:'#64748b',marginTop:'6px',fontStyle:'italic'}}>
+                                                💬 “{selectedRecord.insights.readiness_signals}”
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="detail-block">
                                         <div className="detail-label">💬 Cảm xúc KH</div>
                                         <div style={{ marginTop:'10px' }}>
                                             <SentimentBadge sentiment={selectedRecord.insights.customer_sentiment} />
                                         </div>
+                                        {selectedRecord.insights.sentiment_evidence && (
+                                            <p style={{fontSize:'11px',color:'#64748b',marginTop:'6px',fontStyle:'italic'}}>
+                                                💬 “{selectedRecord.insights.sentiment_evidence}”
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="detail-block full-width">
                                         <div className="detail-label">🩺 Nỗi đau khách hàng</div>
-                                        <div className="detail-tags">
-                                            {(selectedRecord.insights.pain_points || []).map((p,i) =>
-                                                <span key={i} className="pain-tag">{p}</span>)}
+                                        <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'8px'}}>
+                                            {(selectedRecord.insights.pain_points || []).map((p,i) => {
+                                                const isObj = typeof p === 'object';
+                                                const issue = isObj ? p.issue : p;
+                                                const sev   = isObj ? p.severity : null;
+                                                const evid  = isObj ? p.evidence : null;
+                                                const sevColor = sev === 'Nặng' ? '#dc2626' : sev === 'Trung bình' ? '#d97706' : '#059669';
+                                                return (
+                                                    <div key={i} style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'10px 12px'}}>
+                                                        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                                                            <span className="pain-tag">{issue}</span>
+                                                            {sev && <span style={{fontSize:'11px',fontWeight:700,color:sevColor,background:sevColor+'15',padding:'2px 8px',borderRadius:'12px'}}>{sev}</span>}
+                                                        </div>
+                                                        {evid && <p style={{fontSize:'11px',color:'#64748b',margin:'6px 0 0',fontStyle:'italic'}}>💬 “{evid}”</p>}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                     <div className="detail-block full-width">
@@ -706,6 +873,7 @@ const Dashboard = ({ onBack }) => {
                         </div>
                     </div>
                 )}
+                </div>}{/* end overview tab */}
 
             </div>{/* end dash-body */}
         </div>

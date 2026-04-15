@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
@@ -217,22 +217,59 @@ async function extractAndSaveInsights(transcriptionId, transcriptionText) {
     if (!transcriptionId || !transcriptionText) return;
     try {
         console.log(`[Insight Extractor] Đang trích xuất dữ liệu chuẩn hóa cho biên bản: ${transcriptionId}`);
-        const prompt = `Từ nội dung phân tích cuộc gặp/cuộc gọi y tế dưới đây, hãy trích xuất dữ liệu thành cấu trúc chuẩn JSON (bắt buộc đúng format, không kèm markdown \`\`\`json):
+        const prompt = `Phân tích nội dung cuộc gọi tư vấn dược phẩm dưới đây và trả về JSON chuẩn (KHÔNG kèm markdown).
 
-NỘI DUNG GỐC:
+NỘI DUNG:
 """
 ${transcriptionText.substring(0, 10000)}
 """
 
-YÊU CẦU ĐẦU RA JSON CÓ CÁC TRƯỜNG SAU:
+JSON OUTPUT:
 {
-  "call_score": <số nguyên từ 0-100 đánh giá chất lượng cuộc gọi/tư vấn>,
-  "readiness_to_buy": "<Cao | Trung Bình | Thấp>",
-  "pain_points": ["<Nỗi đau 1>", "<Nỗi đau 2>"],
-  "needs": ["<Nhu cầu 1>", "<Nhu cầu 2>"],
-  "competitors_mentioned": ["<Tên đối thủ/nhãn hiệu khác nếu có>"],
-  "customer_sentiment": "<Tích cực | Tiêu cực | Khá khó tính | Hợp tác>"
-}`;
+  "call_score": <0-100, bằng (clarity+professionalism+empathy+problem_solving+efficiency)*2>,
+  "scoring_breakdown": {
+    "clarity": <0-10>,
+    "professionalism": <0-10>,
+    "empathy": <0-10>,
+    "problem_solving": <0-10>,
+    "efficiency": <0-10>
+  },
+  "scoring_comments": {
+    "clarity": "<nhan xet>",
+    "professionalism": "<nhan xet>",
+    "empathy": "<nhan xet>",
+    "problem_solving": "<nhan xet>",
+    "efficiency": "<nhan xet>"
+  },
+  "call_summary": "<tom tat 2-3 cau>",
+  "readiness_to_buy": "<Cao|Trung Binh|Thap>",
+  "readiness_signals": "<cau/hanh vi cu the trong noi dung lam co so phan loai>",
+  "pain_points": [
+    {"issue": "<van de>", "severity": "<Nang|Trung binh|Nhe>", "evidence": "<cau KH noi>"}
+  ],
+  "needs": ["<nhu cau>"],
+  "competitors_mentioned": ["<ten doi thu neu co>"],
+  "customer_sentiment": "<Tich cuc|Hop tac|Kha kho tinh|Tieu cuc>",
+  "sentiment_evidence": "<cau/hanh vi cu the lam co so phan loai>"
+}
+
+QUY TAC PHAN LOAI BAT BUOC:
+
+READINESS_TO_BUY:
+- CAO: KH chu dong hoi gia/cach dat/dia chi giao hang, noi duoc/dong y/lay/dat/mua/thu, xac nhan so luong hoac thanh toan.
+- TRUNG BINH: KH hoi them thanh phan/tac dung/tac dung phu, chua tu choi nhung chua dong y, hen goi lai, dang can nhac.
+- THAP: KH tu choi ro (khong can/khong co tien/dang dung cho khac), khong hoi gi ve san pham, chu dong ket thuc som.
+
+CUSTOMER_SENTIMENT:
+- Tich cuc: nhiet tinh, chu dong chia se, dong y, cam on, khen ngoi.
+- Hop tac: tra loi day du, lang nghe, it phan doi, thai do trung tinh-tich cuc.
+- Kha kho tinh: hay ngat loi, dat cau hoi thach thuc/nghi ngo, doi bang chung, nhung VAN DANG NGHE.
+- Tieu cuc: buc boi, phan nan, chi trich, muon ket thuc ngay, cup may dot ngot.
+
+PAIN_POINTS severity:
+- Nang: de cap nhieu lan, tu ngu cap bach (rat/qua/khong chiu duoc/lau roi/lo lang/so), anh huong sinh hoat hang ngay.
+- Trung binh: de cap nhung khong qua lo, da co giai phap tam thoi nhung chua hai long.
+- Nhe: chi de cap thoang qua, hoi cho biet them, chua bi anh huong nghiem trong.`;
 
         const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
         const result = await model.generateContent(prompt);
@@ -255,7 +292,7 @@ YÊU CẦU ĐẦU RA JSON CÓ CÁC TRƯỜNG SAU:
         if (dbError) {
             console.error(`[Insight Extractor] Lỗi DB khi lưu insights:`, dbError.message);
         } else {
-            console.log(`[Insight Extractor] ✅ Đã lưu JSON insights thành công: ${transcriptionId}`);
+            console.log(`[Insight Extractor] ✅ Đã lưu JSON insights (5 tiêu chí) thành công: ${transcriptionId}`);
         }
     } catch (e) {
         console.error("[Insight Extractor] Lỗi:", e.message);
