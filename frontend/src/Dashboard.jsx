@@ -168,6 +168,20 @@ const Dashboard = ({ onBack }) => {
         </div>
     );
 
+    /* ── Period filter helper ── */
+    const inPeriod = (r) => {
+        if (periodMode === 'all' || !periodValue) return true;
+        if (!r.created_at) return false;
+        const d = new Date(r.created_at);
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1; // 1-12
+        if (periodMode === 'day')     return r.created_at.startsWith(periodValue);
+        if (periodMode === 'month')   { const [py, pm] = periodValue.split('-'); return y === +py && m === +pm; }
+        if (periodMode === 'quarter') { const [py, pq] = periodValue.split('-Q'); const qStart = (+pq-1)*3+1; return y === +py && m >= qStart && m < qStart+3; }
+        if (periodMode === 'year')    return y === +periodValue;
+        return true;
+    };
+
     /* ── Analytics compute ── */
     const analyzed   = records.filter(r => r.insights && inPeriod(r));
     const n          = analyzed.length || 1;
@@ -194,19 +208,7 @@ const Dashboard = ({ onBack }) => {
     const good      = analyzed.filter(r => { const s=r.insights?.call_score||0; return s>=60&&s<80; }).length;
     const poor      = analyzed.filter(r => (r.insights?.call_score||0) < 60 && r.insights).length;
 
-    /* ── Period filter helper ── */
-    const inPeriod = (r) => {
-        if (periodMode === 'all' || !periodValue) return true;
-        if (!r.created_at) return false;
-        const d = new Date(r.created_at);
-        const y = d.getFullYear();
-        const m = d.getMonth() + 1; // 1-12
-        if (periodMode === 'day')     return r.created_at.startsWith(periodValue);
-        if (periodMode === 'month')   { const [py, pm] = periodValue.split('-'); return y === +py && m === +pm; }
-        if (periodMode === 'quarter') { const [py, pq] = periodValue.split('-Q'); const qStart = (+pq-1)*3+1; return y === +py && m >= qStart && m < qStart+3; }
-        if (periodMode === 'year')    return y === +periodValue;
-        return true;
-    };
+
 
     /* ── Filtered list ── */
     const filtered = records.filter(r => {
