@@ -104,6 +104,9 @@ const Dashboard = ({ onBack }) => {
     const [exportDateFrom,  setExportDateFrom]  = useState('');
     const [exportDateTo,    setExportDateTo]    = useState('');
     const [exportEmployee,  setExportEmployee]  = useState('');
+    // Bộ lọc thời gian Dashboard
+    const [periodMode,  setPeriodMode]  = useState('all');   // all | day | month | quarter | year
+    const [periodValue, setPeriodValue] = useState('');       // giá trị tương ứng
 
     /* ── Admin guard ── */
     const stored     = localStorage.getItem('user');
@@ -166,7 +169,7 @@ const Dashboard = ({ onBack }) => {
     );
 
     /* ── Analytics compute ── */
-    const analyzed   = records.filter(r => r.insights);
+    const analyzed   = records.filter(r => r.insights && inPeriod(r));
     const n          = analyzed.length || 1;
     const avgScore   = analyzed.length
         ? Math.round(analyzed.reduce((s, r) => s + (r.insights?.call_score || 0), 0) / analyzed.length)
@@ -191,8 +194,23 @@ const Dashboard = ({ onBack }) => {
     const good      = analyzed.filter(r => { const s=r.insights?.call_score||0; return s>=60&&s<80; }).length;
     const poor      = analyzed.filter(r => (r.insights?.call_score||0) < 60 && r.insights).length;
 
+    /* ── Period filter helper ── */
+    const inPeriod = (r) => {
+        if (periodMode === 'all' || !periodValue) return true;
+        if (!r.created_at) return false;
+        const d = new Date(r.created_at);
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1; // 1-12
+        if (periodMode === 'day')     return r.created_at.startsWith(periodValue);
+        if (periodMode === 'month')   { const [py, pm] = periodValue.split('-'); return y === +py && m === +pm; }
+        if (periodMode === 'quarter') { const [py, pq] = periodValue.split('-Q'); const qStart = (+pq-1)*3+1; return y === +py && m >= qStart && m < qStart+3; }
+        if (periodMode === 'year')    return y === +periodValue;
+        return true;
+    };
+
     /* ── Filtered list ── */
     const filtered = records.filter(r => {
+        if (!inPeriod(r)) return false;
         if (filter === 'high'       && r.insights?.readiness_to_buy !== 'Cao') return false;
         if (filter === 'low_score'  && (r.insights?.call_score||0) >= 70)       return false;
         if (filter === 'no_insights'&& r.insights)                               return false;
@@ -338,6 +356,58 @@ const Dashboard = ({ onBack }) => {
                     <span className="dash-badge analyzed">{analyzed.length} đã phân tích</span>
                 </div>
             </header>
+
+            {/* ══ PERIOD FILTER BAR ════════════════════════════════ */}
+            <div style={{ background:'#f1f5f9', borderBottom:'1px solid #e2e8f0', padding:'10px 28px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap' }}>
+                <span style={{ fontSize:'12px', fontWeight:600, color:'#475569' }}>Xem theo:</span>
+                {[
+                    { label:'Tất cả', val:'all' },
+                    { label:'Ngày',   val:'day' },
+                    { label:'Tháng',  val:'month' },
+                    { label:'Quý',    val:'quarter' },
+                    { label:'Năm',    val:'year' },
+                ].map(({ label, val }) => (
+                    <button key={val}
+                        onClick={() => { setPeriodMode(val); setPeriodValue(''); }}
+                        style={{ padding:'4px 12px', borderRadius:'20px', border:'1px solid', fontSize:'12px', fontWeight:600, cursor:'pointer',
+                            background: periodMode === val ? '#6366f1' : '#fff',
+                            color:      periodMode === val ? '#fff'    : '#475569',
+                            borderColor:periodMode === val ? '#6366f1' : '#e2e8f0' }}>
+                        {label}
+                    </button>
+                ))}
+
+                {periodMode === 'day' && (
+                    <input type="date" value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+                        style={{ padding:'4px 8px', border:'1px solid #e2e8f0', borderRadius:'6px', fontSize:'12px' }} />
+                )}
+                {periodMode === 'month' && (
+                    <input type="month" value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+                        style={{ padding:'4px 8px', border:'1px solid #e2e8f0', borderRadius:'6px', fontSize:'12px' }} />
+                )}
+                {periodMode === 'quarter' && (
+                    <select value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+                        style={{ padding:'4px 8px', border:'1px solid #e2e8f0', borderRadius:'6px', fontSize:'12px', background:'#fff' }}>
+                        <option value=''>-- Chọn quý --</option>
+                        {[2024,2025,2026].flatMap(y => [1,2,3,4].map(q => (
+                            <option key={`${y}-Q${q}`} value={`${y}-Q${q}`}>{`Q${q} / ${y}`}</option>
+                        )))}
+                    </select>
+                )}
+                {periodMode === 'year' && (
+                    <select value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+                        style={{ padding:'4px 8px', border:'1px solid #e2e8f0', borderRadius:'6px', fontSize:'12px', background:'#fff' }}>
+                        <option value=''>-- Chọn năm --</option>
+                        {[2024,2025,2026].map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                )}
+
+                {(periodMode !== 'all' && periodValue) && (
+                    <span style={{ marginLeft:'auto', fontSize:'12px', color:'#6366f1', fontWeight:600 }}>
+                        {analyzed.length} cuộc gọi đã phân tích trong kỳ này
+                    </span>
+                )}
+            </div>
 
             {/* ══ EXPORT MODAL ════════════════════════════════ */}
             {showExportModal && (
