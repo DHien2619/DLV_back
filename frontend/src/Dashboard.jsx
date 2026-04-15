@@ -46,7 +46,7 @@ const Donut = ({ value, total, color, label }) => {
             <div style={{ position: 'relative', width: 68, height: 68 }}>
                 <svg viewBox="0 0 68 68" width="68" height="68" style={{ transform: 'rotate(-90deg)' }}>
                     <circle cx="34" cy="34" r={r} fill="none"
-                        stroke="rgba(255,255,255,0.05)" strokeWidth="7" />
+                        stroke="#e2e8f0" strokeWidth="7" />
                     <circle cx="34" cy="34" r={r} fill="none"
                         stroke={color} strokeWidth="7"
                         strokeDasharray={`${dash} ${c}`}
@@ -97,15 +97,15 @@ const Dashboard = ({ onBack }) => {
     if (!currentUser || currentUser.role !== 'admin') {
         return (
             <div style={{
-                minHeight: '100vh', background: '#080b12',
+                minHeight: '100vh', background: '#f8fafc',
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'Inter, sans-serif', gap: '14px'
             }}>
                 <div style={{ fontSize: '56px' }}>🔒</div>
-                <h2 style={{ color: '#f8fafc', fontSize: '22px', fontWeight: 800 }}>Không có quyền truy cập</h2>
+                <h2 style={{ color: '#0f172a', fontSize: '22px', fontWeight: 800 }}>Không có quyền truy cập</h2>
                 <p style={{ color: '#475569', fontSize: '13px' }}>Chỉ Admin mới được xem Dashboard.</p>
-                <p style={{ color: '#1e293b', fontSize: '12px' }}>Đang chuyển hướng về trang chính...</p>
+                <p style={{ color: '#94a3b8', fontSize: '12px' }}>Đang chuyển hướng về trang chính...</p>
             </div>
         );
     }
