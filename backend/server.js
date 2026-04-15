@@ -327,20 +327,20 @@ app.post('/upload', upload.single('file'), async (req, res) => {
             const prompt = `Bạn là hệ thống AI thẩm định Y tế chuyên nghiệp. Quy trình xử lý của bạn:
 1. ${modeInstruction} (Tiếng Việt nếu có).
 2. Tóm tắt nội dung chính của cuộc trao đổi (Summary).
-3. Rút ra 3 Insight quan trọng nhất có thể học hỏi hoặc cải thiện (Insights).
+3. Trích xuất chính xác 3 NHU CẦU CỐT LÕI hoặc NỖI ĐAU (Pain points) lớn nhất của khách hàng được tiết lộ trong cuộc gọi (viết thành câu rõ ràng, không dùng từ khóa tóm tắt).
 4. Chấm điểm nhân viên y tế theo 5 tiêu chí (Rõ ràng, Chuyên nghiệp, Thấu cảm, Xử lý vấn đề, Hiệu quả) trên thang 10 điểm.
 
 Vui lòng TRÌNH BÀY ĐẸP, chia xuống dòng rõ ràng theo đúng format sau:
 
 
 
-📝 **TÓM TẮT (SUMMARY):**
+📝 **TÓM TẮT DỊCH VỤ (SUMMARY):**
 (Tóm tắt nội dung...)
 
-💡 **3 INSIGHT QUAN TRỌNG:**
-1. ...
-2. ...
-3. ...
+💡 **3 NHU CẦU / NỖI ĐAU CỦA KHÁCH HÀNG:**
+1. (Giải nghĩa nhu cầu 1...)
+2. (Giải nghĩa nhu cầu 2...)
+3. (Giải nghĩa nhu cầu 3...)
 
 ⭐ **ĐÁNH GIÁ & CHẤM ĐIỂM (SCORING):**
 - Sự rõ ràng (Clarity): X/10 - Lời bình: ...
