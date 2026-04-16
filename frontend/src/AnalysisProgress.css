@@ -1,0 +1,140 @@
+/* ===== Analysis Progress — real-time stream UI ===== */
+.ap-root {
+  background: var(--paper);
+  border: 1px solid var(--ink-100);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  font-family: var(--font-sans);
+}
+
+.ap-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.ap-head-left { display: flex; align-items: center; gap: 12px; }
+.ap-spinner {
+  width: 28px; height: 28px;
+  border: 3px solid var(--indigo-100);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: ap-spin 0.9s linear infinite;
+}
+@keyframes ap-spin { to { transform: rotate(360deg); } }
+.ap-head b { display: block; font-size: 14px; font-weight: 700; }
+.ap-head small { display: block; font-size: 11px; color: var(--ink-500); margin-top: 2px; }
+.ap-pct {
+  font-size: 22px; font-weight: 800;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-bar {
+  height: 6px;
+  background: var(--ink-100);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.ap-bar-fill {
+  height: 100%;
+  background: var(--primary-gradient);
+  transition: width .4s ease;
+}
+
+.ap-steps {
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.ap-step {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px;
+  background: var(--ink-50);
+  border-radius: var(--radius-sm);
+  transition: all .15s;
+}
+.ap-step.ap-pending { opacity: 0.5; }
+.ap-step.ap-running {
+  background: var(--primary-soft);
+  border-left: 3px solid var(--primary);
+  padding-left: 9px;
+}
+.ap-step.ap-done {
+  background: #f0fdf4;
+  border-left: 3px solid var(--success);
+  padding-left: 9px;
+}
+.ap-step.ap-error {
+  background: var(--red-50);
+  border-left: 3px solid var(--danger);
+  padding-left: 9px;
+}
+
+.ap-step-icon {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--paper);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+  border: 1px solid var(--ink-200);
+}
+.ap-step.ap-running .ap-step-icon { border-color: var(--primary); color: var(--primary); }
+.ap-step.ap-done .ap-step-icon { background: var(--success); color: white; border-color: var(--success); font-weight: 700; }
+.ap-step.ap-error .ap-step-icon { background: var(--danger); color: white; border-color: var(--danger); font-weight: 700; }
+
+.ap-step-body { flex: 1; min-width: 0; }
+.ap-step-body b { display: block; font-size: 13px; font-weight: 600; color: var(--ink-800); }
+.ap-step-body small { display: block; font-size: 11px; color: var(--ink-500); margin-top: 2px; }
+.ap-step.ap-running .ap-step-body small { color: var(--primary); }
+.ap-err { color: var(--danger) !important; }
+
+.ap-step-ms {
+  font-size: 11px; color: var(--ink-500);
+  font-family: monospace; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Skills sub-list */
+.ap-skills {
+  margin: 4px 0 4px 36px;
+  padding: 6px 8px;
+  background: var(--paper);
+  border-left: 2px dashed var(--indigo-200);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ap-skill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all .15s;
+}
+.ap-skill.ap-pending { color: var(--ink-400); }
+.ap-skill.ap-running { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.ap-skill.ap-done { color: var(--ink-600); }
+.ap-skill.ap-error { background: var(--red-50); color: var(--danger); }
+
+.ap-skill-icon {
+  width: 18px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px;
+}
+.ap-skill.ap-done .ap-skill-icon { color: var(--success); font-weight: 700; }
+.ap-skill.ap-error .ap-skill-icon { color: var(--danger); font-weight: 700; }
+.ap-skill-label { flex: 1; }
+.ap-skill-ms { font-family: monospace; color: var(--ink-400); font-size: 10px; }
+
+.ap-mini-spin {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: ap-spin 0.8s linear infinite;
+}
+
+.ap-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--ink-200);
+  text-align: center;
+}
+.ap-footer small { color: var(--ink-400); font-size: 10px; }
