@@ -4,7 +4,7 @@ import {
   IconAnalyze, IconHome, IconHistory, IconCustomers,
   IconQuality, IconOpportunity, IconCompliance, IconMemory,
   IconDashboard, IconCoach, IconComplianceQ,
-  IconMyCalls, IconDraft, IconBell, IconSettings, IconSparkles
+  IconMyCalls, IconDraft, IconBell, IconSettings, IconSparkles, IconBook
 } from './icons';
 import AgentSheet from './AgentSheet';
 import './AppShell.css';
@@ -40,7 +40,8 @@ const NAV = [
     section: 'Cá nhân',
     items: [
       { to: '/my/calls',  Icon: IconMyCalls, label: 'Cuộc gọi của tôi' },
-      { to: '/my/drafts', Icon: IconDraft,   label: 'Ghi chú' }
+      { to: '/my/drafts', Icon: IconDraft,   label: 'Ghi chú' },
+      { to: '/guide',     Icon: IconBook,    label: 'Hướng dẫn sử dụng' }
     ]
   }
 ];
@@ -155,5 +156,6 @@ function getCrumb(path) {
   if (path === '/dashboard-v2') return 'Bảng điều khiển';
   if (path === '/coach') return 'Huấn luyện viên';
   if (path === '/compliance-queue') return 'Hàng đợi tuân thủ';
+  if (path === '/guide') return 'Hướng dẫn sử dụng';
   return path.replace(/^\//, '').replace(/\//g, ' / ');
 }

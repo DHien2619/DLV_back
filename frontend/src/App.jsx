@@ -18,6 +18,7 @@ import Coach from './Coach';
 import { QualitySkill, OpportunitySkill, ComplianceSkill, MemorySkill } from './SkillsPages';
 import CallHistory from './CallHistory';
 import Notes from './Notes';
+import UserGuide from './UserGuide';
 import ComingSoon from './ComingSoon';
 
 // Error boundary to surface runtime errors instead of showing blank page
@@ -82,6 +83,9 @@ const App = () => {
 
         {/* Notes */}
         <Route path="/my/drafts"          element={<ShellRoute><Notes /></ShellRoute>} />
+
+        {/* User Guide */}
+        <Route path="/guide"              element={<ShellRoute><UserGuide /></ShellRoute>} />
 
         {/* Legacy / no-shell routes */}
         <Route path="/old-dashboard" element={<Dashboard onBack={() => window.location.href='/'} />} />
