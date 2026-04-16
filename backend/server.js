@@ -59,6 +59,18 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// Ensure Supabase storage bucket exists (fire-and-forget)
+(async () => {
+  try {
+    const { data: buckets } = await supabase.storage.listBuckets();
+    if (!buckets?.find(b => b.name === 'call-audio')) {
+      const { error } = await supabase.storage.createBucket('call-audio', { public: true, fileSizeLimit: 52428800 });
+      if (error && !error.message?.includes('already exists')) console.warn('[storage] bucket create:', error.message);
+      else console.log('[storage] call-audio bucket created');
+    }
+  } catch (e) { console.warn('[storage] bucket check failed:', e.message); }
+})();
+
 // Middleware for token authentication
 const authenticateToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];

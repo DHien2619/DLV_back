@@ -207,8 +207,9 @@ export default function CallDetail() {
           onTabChange={setActiveTab}
           activeSeg={-1}
           audioRef={null}
-          onJump={() => setActiveTab('transcript')}
-          hasAudio={false}
+          onJump={(sec) => { setActiveTab('transcript'); }}
+          hasAudio={!!call.audio_url}
+          audioUrl={call.audio_url || null}
           ragUsed={false}
         />
       </div>

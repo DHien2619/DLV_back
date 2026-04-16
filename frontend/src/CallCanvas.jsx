@@ -1,10 +1,11 @@
 // Shared Canvas tab components — used by CallWorkspace (live analysis)
 // and CallDetail (saved call from DB).
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   IconTarget, IconTranscript, IconQuality, IconMoney, IconCompliance, IconMemory,
   IconSparkles, IconScroll, IconClock, IconQuote, IconCheck, IconAlert
 } from './icons';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 
 // ---------- helpers ----------
 export const fmtTime = (sec) => { const s = Math.max(0, Math.floor(sec || 0)); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; };
@@ -122,29 +123,181 @@ export function CanvasOverview({ analysis, onTabJump }) {
 }
 
 // ============================================================
-// TRANSCRIPT
+// TRANSCRIPT with Audio Player
 // ============================================================
-export function CanvasTranscript({ analysis, activeSeg, audioRef, onJump, hasAudio = true }) {
+export function CanvasTranscript({ analysis, activeSeg: externalActiveSeg, audioRef, onJump, hasAudio = true, audioUrl }) {
   const segs = analysis?.diarized?.segments || [];
+  const playerRef = useRef(null);
+  const listRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [localActiveSeg, setLocalActiveSeg] = useState(-1);
+
+  const canPlay = !!audioUrl;
+  const activeSeg = canPlay ? localActiveSeg : externalActiveSeg;
+
+  // Find active segment based on currentTime
+  useEffect(() => {
+    if (!canPlay || !playing) return;
+    const idx = segs.findIndex((s, i) => {
+      const next = segs[i + 1];
+      return currentTime >= (s.start_sec || 0) && (!next || currentTime < (next.start_sec || 0));
+    });
+    if (idx !== localActiveSeg && idx >= 0) {
+      setLocalActiveSeg(idx);
+      // Auto-scroll to active segment
+      const el = listRef.current?.querySelector(`[data-seg="${idx}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [currentTime, segs, canPlay, playing, localActiveSeg]);
+
+  // Audio event listeners
+  useEffect(() => {
+    const audio = playerRef.current;
+    if (!audio) return;
+    const onTime = () => setCurTime(audio.currentTime);
+    const onDur = () => setDuration(audio.duration || 0);
+    const onEnd = () => setPlaying(false);
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    audio.addEventListener('timeupdate', onTime);
+    audio.addEventListener('loadedmetadata', onDur);
+    audio.addEventListener('durationchange', onDur);
+    audio.addEventListener('ended', onEnd);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+    return () => {
+      audio.removeEventListener('timeupdate', onTime);
+      audio.removeEventListener('loadedmetadata', onDur);
+      audio.removeEventListener('durationchange', onDur);
+      audio.removeEventListener('ended', onEnd);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+    };
+  }, [audioUrl]);
+
+  const togglePlay = useCallback(() => {
+    const a = playerRef.current;
+    if (!a) return;
+    if (a.paused) a.play().catch(() => {});
+    else a.pause();
+  }, []);
+
+  const seekTo = useCallback((sec) => {
+    const a = playerRef.current;
+    if (!a) return;
+    a.currentTime = Math.max(0, sec);
+    if (a.paused) a.play().catch(() => {});
+  }, []);
+
+  const skip = useCallback((delta) => {
+    const a = playerRef.current;
+    if (!a) return;
+    a.currentTime = Math.max(0, Math.min(a.duration || 0, a.currentTime + delta));
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const a = playerRef.current;
+    if (!a) return;
+    a.muted = !a.muted;
+    setMuted(a.muted);
+  }, []);
+
+  const cycleSpeed = useCallback(() => {
+    const a = playerRef.current;
+    if (!a) return;
+    const rates = [0.75, 1, 1.25, 1.5, 2];
+    const next = rates[(rates.indexOf(speed) + 1) % rates.length];
+    a.playbackRate = next;
+    setSpeed(next);
+  }, [speed]);
+
+  const onProgressClick = useCallback((e) => {
+    const a = playerRef.current;
+    if (!a || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    a.currentTime = pct * duration;
+  }, [duration]);
+
+  const handleSegClick = useCallback((seg, idx) => {
+    if (canPlay) {
+      seekTo(seg.start_sec || 0);
+      setLocalActiveSeg(idx);
+    } else {
+      onJump?.(seg.start_sec);
+    }
+  }, [canPlay, seekTo, onJump]);
+
   return (
     <div className="cv-tr">
-      {hasAudio && <div className="cv-tr-wave" ref={audioRef} />}
-      {!hasAudio && (
+      {/* Hidden audio element */}
+      {canPlay && <audio ref={playerRef} src={audioUrl} preload="metadata" />}
+
+      {/* Sticky audio player */}
+      {canPlay ? (
+        <div className="cv-player">
+          <div className="cv-player-controls">
+            <button className="cv-player-btn" onClick={() => skip(-10)} title="-10s">
+              <SkipBack size={16} strokeWidth={2}/>
+            </button>
+            <button className="cv-player-btn cv-player-play" onClick={togglePlay}>
+              {playing ? <Pause size={20} strokeWidth={2.5}/> : <Play size={20} strokeWidth={2.5}/>}
+            </button>
+            <button className="cv-player-btn" onClick={() => skip(10)} title="+10s">
+              <SkipForward size={16} strokeWidth={2}/>
+            </button>
+          </div>
+
+          <div className="cv-player-middle">
+            <span className="cv-player-time">{fmtTime(currentTime)}</span>
+            <div className="cv-player-progress" onClick={onProgressClick}>
+              <div className="cv-player-bar" style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}/>
+            </div>
+            <span className="cv-player-time">{fmtTime(duration)}</span>
+          </div>
+
+          <div className="cv-player-right">
+            <button className="cv-player-btn cv-player-speed" onClick={cycleSpeed} title="Tốc độ">
+              {speed}x
+            </button>
+            <button className="cv-player-btn" onClick={toggleMute} title={muted ? 'Bật tiếng' : 'Tắt tiếng'}>
+              {muted ? <VolumeX size={16} strokeWidth={2}/> : <Volume2 size={16} strokeWidth={2}/>}
+            </button>
+          </div>
+        </div>
+      ) : (
         <div className="cv-tr-no-audio">
           📎 File audio không còn (đã xử lý xong). Transcript với timestamp vẫn đầy đủ.
         </div>
       )}
-      <div className="cv-tr-list">
+
+      {/* Transcript list */}
+      <div className="cv-tr-list" ref={listRef}>
         {segs.map((s, i) => (
           <div
             key={i}
             data-seg={i}
             className={`cv-seg cv-seg-${s.speaker.toLowerCase()} ${activeSeg === i ? 'active' : ''}`}
-            onClick={() => onJump?.(s.start_sec)}
+            onClick={() => handleSegClick(s, i)}
           >
             <div className="cv-seg-head">
               <span className="cv-seg-speaker">{s.speaker === 'AGENT' ? '👨‍⚕️ Agent' : s.speaker === 'CUSTOMER' ? '👤 KH' : '❓'}</span>
-              <span className="cv-seg-time">{fmtTime(s.start_sec)}</span>
+              <div className="cv-seg-actions">
+                {canPlay && (
+                  <button
+                    className="cv-seg-play"
+                    onClick={(e) => { e.stopPropagation(); seekTo(s.start_sec || 0); }}
+                    title="Phát từ đây"
+                  >
+                    {activeSeg === i && playing ? <Pause size={13} strokeWidth={2.5}/> : <Play size={13} strokeWidth={2.5}/>}
+                  </button>
+                )}
+                <span className="cv-seg-time">{fmtTime(s.start_sec)}</span>
+              </div>
             </div>
             <div className="cv-seg-text">{s.text}</div>
           </div>
@@ -323,7 +476,7 @@ export function CanvasNeeds({ analysis }) {
 // ============================================================
 // CANVAS ROOT — renders tabs + active content
 // ============================================================
-export function CanvasView({ analysis, activeTab, onTabChange, activeSeg, audioRef, onJump, hasAudio = true, ragUsed = false }) {
+export function CanvasView({ analysis, activeTab, onTabChange, activeSeg, audioRef, onJump, hasAudio = true, ragUsed = false, audioUrl }) {
   return (
     <>
       <div className="ws-canvas-tabs">
@@ -341,7 +494,7 @@ export function CanvasView({ analysis, activeTab, onTabChange, activeSeg, audioR
       </div>
       <div className="ws-canvas-content">
         {activeTab === 'overview'    && <CanvasOverview analysis={analysis} onTabJump={onTabChange} />}
-        {activeTab === 'transcript'  && <CanvasTranscript analysis={analysis} activeSeg={activeSeg} audioRef={audioRef} onJump={onJump} hasAudio={hasAudio} />}
+        {activeTab === 'transcript'  && <CanvasTranscript analysis={analysis} activeSeg={activeSeg} audioRef={audioRef} onJump={onJump} hasAudio={hasAudio} audioUrl={audioUrl} />}
         {activeTab === 'quality'     && <CanvasQuality analysis={analysis} onJump={onJump} />}
         {activeTab === 'opportunity' && <CanvasOpportunity analysis={analysis} onJump={onJump} />}
         {activeTab === 'compliance'  && <CanvasCompliance analysis={analysis} onJump={onJump} />}

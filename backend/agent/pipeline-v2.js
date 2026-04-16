@@ -181,10 +181,33 @@ async function analyzeCallV2(opts) {
     let savedCallId = null;
     if (persist && supabase) {
       onProgress("persist", "start");
+      // Upload audio to Supabase Storage (fire-and-forget style, but capture URL)
+      let audioUrl = null;
+      try {
+        const fs = require("fs");
+        const path = require("path");
+        const audioBuffer = fs.readFileSync(filePath);
+        const ext = path.extname(metadata.filename || "audio.mp3") || ".mp3";
+        const storagePath = `calls/${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+        const { data: upData, error: upErr } = await supabase.storage
+          .from("call-audio")
+          .upload(storagePath, audioBuffer, { contentType: mimeType, upsert: false });
+        if (upErr) {
+          console.warn("[pipeline-v2] audio storage upload failed:", upErr.message);
+        } else {
+          const { data: urlData } = supabase.storage.from("call-audio").getPublicUrl(storagePath);
+          audioUrl = urlData?.publicUrl || null;
+          console.log("[pipeline-v2] audio stored:", audioUrl);
+        }
+      } catch (e) {
+        console.warn("[pipeline-v2] audio storage error:", e.message);
+      }
+
       const { data: callRow, error: callErr } = await supabase.from("calls").insert([{
         customer_id: resolvedCustomerId,
         rep_user_id: repUserId || null,
         audio_filename: metadata.filename || null,
+        audio_url: audioUrl,
         metadata,
         customer_identified: !!resolvedCustomerId,
         match_candidates: matchCandidates ? matchCandidates.candidates : null,
