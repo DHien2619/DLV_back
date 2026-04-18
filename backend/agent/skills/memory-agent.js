@@ -11,7 +11,7 @@
 //   - purchase: da mua san pham gi tu nhan vien
 
 const { SchemaType } = require("@google/generative-ai");
-const { generateStructured } = require("../gemini-client");
+const { generateStructured } = require("../claude-client");
 
 const factSchema = {
   type: SchemaType.OBJECT,

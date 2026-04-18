@@ -1,5 +1,5 @@
 // Step 5: Compliance Guardian — pharma regulatory risk detection.
-const { generateStructured } = require("../gemini-client");
+const { generateStructured } = require("../claude-client");
 const { complianceSchema } = require("../schemas");
 
 const SYSTEM = `Ban la Compliance Officer chuyen kiem tra tuan thu cho cuoc goi tu van duoc pham.

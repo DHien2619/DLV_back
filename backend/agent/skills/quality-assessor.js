@@ -1,5 +1,5 @@
 // Step 2: Quality Assessor — Pharma-specific 9-criteria rubric with evidence.
-const { generateStructured } = require("../gemini-client");
+const { generateStructured } = require("../claude-client");
 const { rubricSchema } = require("../schemas");
 
 const SYSTEM = `Ban la chuyen gia QA (Quality Assurance) cho doi ngu tu van duoc pham/telesale y te.

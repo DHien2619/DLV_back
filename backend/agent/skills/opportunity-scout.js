@@ -1,5 +1,5 @@
 // Step 4: Opportunity Scout — sales intelligence + buying signals + objections.
-const { generateStructured } = require("../gemini-client");
+const { generateStructured } = require("../claude-client");
 const { opportunitySchema } = require("../schemas");
 
 const SYSTEM = `Ban la Sales Intelligence Analyst. Nhiem vu: doc cuoc goi va xuat co hoi ban hang voi gia tri va hanh dong tiep theo CU THE.

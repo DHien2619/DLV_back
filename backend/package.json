@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.103.0",
     "axios": "^1.7.7",

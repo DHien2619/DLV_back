@@ -488,6 +488,7 @@ export default function CallWorkspace() {
             audioRef={waveRef}
             onJump={jumpTo}
             hasAudio={!!audioUrl}
+            audioUrl={audioUrl}
             ragUsed={analysis?.rag_context_used}
           />
         )}

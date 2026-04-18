@@ -8,7 +8,7 @@
 // Let humans confirm → the system learns from the confirmation.
 
 const { SchemaType } = require("@google/generative-ai");
-const { generateStructured } = require("../gemini-client");
+const { generateStructured } = require("../claude-client");
 const { embedText } = require("../embeddings");
 
 const hintSchema = {

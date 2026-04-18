@@ -1,5 +1,5 @@
 // Step 6: Call Structure — summary + phases + moments + talk-ratio + sentiment arc.
-const { generateStructured } = require("../gemini-client");
+const { generateStructured } = require("../claude-client");
 const { callStructureSchema } = require("../schemas");
 
 const SYSTEM = `Ban la chuyen gia phan tich cau truc cuoc goi sales.

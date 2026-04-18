@@ -9,7 +9,7 @@
 //   6. Return structured response for UI to render clickable citations
 
 const { SchemaType } = require("@google/generative-ai");
-const { generateStructured } = require("../gemini-client");
+const { generateStructured } = require("../claude-client");
 const { embedText } = require("../embeddings");
 const { buildCustomerContext } = require("./memory-agent");
 

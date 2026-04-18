@@ -1,5 +1,5 @@
 // Step 3: Needs Extractor — structured customer needs profile.
-const { generateStructured } = require("../gemini-client");
+const { generateStructured } = require("../claude-client");
 const { needsSchema } = require("../schemas");
 
 const SYSTEM = `Ban la chuyen vien phan tich nhu cau khach hang trong nganh duoc pham/y te.
