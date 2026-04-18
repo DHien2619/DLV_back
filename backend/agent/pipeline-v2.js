@@ -12,7 +12,6 @@
 //      - Upsert calls row with all results
 //      - Upsert opportunities + compliance_events
 
-const { uploadAudio } = require("./gemini-client");
 const { diarizeAudio, diarizedToText } = require("./skills/diarize");
 const { assessQuality } = require("./skills/quality-assessor");
 const { extractNeeds } = require("./skills/needs-extractor");
@@ -115,13 +114,14 @@ async function analyzeCallV2(opts) {
   const startedAt = Date.now();
 
   onProgress("upload", "start");
-  const { fileData, cleanup } = await uploadAudio(filePath, mimeType);
+  // No upload step needed for Groq Whisper — it reads the local file directly.
+  const cleanup = async () => {};
   onProgress("upload", "done");
 
   try {
-    // Step 1: Diarize
+    // Step 1: Diarize (Groq Whisper + Claude speaker labeling)
     onProgress("diarize", "start");
-    const diarized = await diarizeAudio({ fileData });
+    const diarized = await diarizeAudio({ filePath });
     const diarizedText = diarizedToText(diarized);
     onProgress("diarize", "done");
 
