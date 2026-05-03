@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { IconChat, IconClose, IconLoader, IconMemory, IconPaperclip, IconTarget, IconTranscript, IconWarning } from './icons';
 import './ChatPanel.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -67,7 +68,7 @@ export default function ChatPanel({ customerId, customerName }) {
   if (!expanded) {
     return (
       <button className="chp-fab" onClick={() => setExpanded(true)}>
-        💬 Hỏi Agent về {customerName}
+        <IconChat size={14}/> Hỏi Agent về {customerName}
       </button>
     );
   }
@@ -76,10 +77,10 @@ export default function ChatPanel({ customerId, customerName }) {
     <div className="chp-panel">
       <div className="chp-head">
         <div>
-          <b>💬 AI Agent</b>
+          <b><IconChat size={14}/> AI Agent</b>
           <small>Hỏi đáp dựa trên lịch sử KH</small>
         </div>
-        <button className="chp-close" onClick={() => setExpanded(false)}>✕</button>
+        <button className="chp-close" onClick={() => setExpanded(false)}><IconClose size={14}/></button>
       </div>
 
       <div className="chp-body" ref={bodyRef}>
@@ -107,7 +108,7 @@ export default function ChatPanel({ customerId, customerName }) {
 
                 {m.citations?.length > 0 && (
                   <div className="chp-citations">
-                    <div className="chp-citations-label">📎 Evidence ({m.citations.length})</div>
+                    <div className="chp-citations-label"><IconPaperclip size={14}/> Evidence ({m.citations.length})</div>
                     {m.citations.map((c, j) => (
                       <button
                         key={j}
@@ -116,7 +117,7 @@ export default function ChatPanel({ customerId, customerName }) {
                         disabled={!c.call_id}
                       >
                         <div className="chp-citation-type">
-                          {c.source_type === 'memory' ? '🧠 memory' : c.source_type === 'transcript' ? '📝 transcript' : '📄 summary'}
+                          {c.source_type === 'memory' ? ' memory' : c.source_type === 'transcript' ? '📝 transcript' : ' summary'}
                           {c.timestamp_sec > 0 && <span className="chp-citation-ts"> @ {fmtTime(c.timestamp_sec)}</span>}
                         </div>
                         <div className="chp-citation-quote">"{c.quote}"</div>
@@ -128,7 +129,7 @@ export default function ChatPanel({ customerId, customerName }) {
 
                 {m.suggested_actions?.length > 0 && (
                   <div className="chp-actions">
-                    <div className="chp-actions-label">🎯 Gợi ý hành động</div>
+                    <div className="chp-actions-label"><IconTarget size={16}/> Gợi ý hành động</div>
                     {m.suggested_actions.map((a, j) => <div key={j} className="chp-action">• {a}</div>)}
                   </div>
                 )}
@@ -164,7 +165,7 @@ export default function ChatPanel({ customerId, customerName }) {
           onChange={(e) => setInput(e.target.value)}
           disabled={sending}
         />
-        <button type="submit" disabled={sending || !input.trim()}>{sending ? '⏳' : 'Gửi'}</button>
+        <button type="submit" disabled={sending || !input.trim()}>{sending ? '...' : 'Gửi'}</button>
       </form>
     </div>
   );

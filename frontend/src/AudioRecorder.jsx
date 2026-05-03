@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
+import { IconChartLine, IconChat, IconCheck, IconClose, IconLoader, IconPaperclip, IconSparkles } from './icons';
 import 'react-toastify/dist/ReactToastify.css';
 import './AudioRecorder.css';
 
@@ -156,7 +157,7 @@ const AudioRecorder = () => {
                     id: 'audio_' + (t._id || t.id || i),
                     label: `🎵 Audio ${i + 1}`,
                     messages: [
-                        { role: 'user', content: '📎 File audio' },
+                        { role: 'user', content: ' File audio' },
                         { role: 'assistant', content: t.transcription }
                     ]
                 }));
@@ -182,7 +183,7 @@ const AudioRecorder = () => {
         if (msgs.length < 1) return;
         const firstUser = msgs.find(m => m.role === 'user');
         const raw = firstUser?.content || 'Cuộc trò chuyện';
-        const label = '💬 ' + raw.slice(0, 28) + (raw.length > 28 ? '...' : '');
+        const label = ' ' + raw.slice(0, 28) + (raw.length > 28 ? '...' : '');
         const session = { id, label, messages: msgs };
 
         setChatSessions(prev => {
@@ -265,7 +266,7 @@ const AudioRecorder = () => {
             const detail = err.response?.data?.error ? ` (${err.response.data.error})` : '';
             setSessionData(prev => {
                 const temp = prev[sid] || emptySession();
-                return { ...prev, [sid]: { ...temp, messages: [...temp.messages, { role: 'assistant', content: `❌ Lỗi kết nối tới AI.${detail}` }], loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
+                return { ...prev, [sid]: { ...temp, messages: [...temp.messages, { role: 'assistant', content: `✕ Lỗi kết nối tới AI.${detail}` }], loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
             });
         } finally {
             checkAndProcessQueue(sid);
@@ -281,8 +282,8 @@ const AudioRecorder = () => {
 
         const fileNames = files.map(f => f.name).join(', ');
         const bubbleText = userPrompt
-            ? `📎 **${fileNames}**\n${userPrompt}`
-            : `📎 **${fileNames}**`;
+            ? ` **${fileNames}**\n${userPrompt}`
+            : ` **${fileNames}**`;
         const userMsg = { role: 'user', content: bubbleText, isFile: true };
         setSessionData(prev => {
             const temp = prev[sid] || emptySession();
@@ -339,11 +340,11 @@ const AudioRecorder = () => {
                 persistSession(sid, updated);
                 return { ...prev, [sid]: { ...temp, messages: updated, loadingCount: Math.max(0, (temp.loadingCount || 0) - 1) } };
             });
-            toast.success(`✅ Đã phân tích ${files.length} file!`);
+            toast.success(`✓ Đã phân tích ${files.length} file!`);
         } catch (err) {
             const detail = err.response?.data?.error ? ` (${err.response.data.error})` : '';
             const origMsg = err.response?.data?.message || err.message || 'Không thể phân tích file.';
-            const msg = err.code === 'ECONNABORTED' ? '⏳ Quá thời gian chờ mạng. Thử lại!' : `❌ Lỗi: ${origMsg}${detail}`;
+            const msg = err.code === 'ECONNABORTED' ? '... Quá thời gian chờ mạng. Thử lại!' : `✕ Lỗi: ${origMsg}${detail}`;
             
             setSessionData(prev => {
                 const temp = prev[sid] || emptySession();
@@ -401,12 +402,12 @@ const AudioRecorder = () => {
     // ── Rename
     const startRename = (session) => {
         setRenamingId(session.id);
-        setRenameValue(session.label.replace(/^[💬🎵📎]\s*/, ''));
+        setRenameValue(session.label.replace(/^[<IconChat size={14}/>🎵<IconPaperclip size={14}/>]\s*/, ''));
         setContextMenu(null);
     };
     const commitRename = (id) => {
         if (!renameValue.trim()) { setRenamingId(null); return; }
-        const newLabel = '💬 ' + renameValue.trim();
+        const newLabel = ' ' + renameValue.trim();
         setChatSessions(prev => {
             const updated = prev.map(s => s.id === id ? { ...s, label: newLabel } : s);
             localStorage.setItem(`pharmaSessions_${userId || 'anonymous'}`, JSON.stringify(updated.filter(s => s.id.startsWith('chat_'))));
@@ -700,7 +701,7 @@ const AudioRecorder = () => {
             <aside className={`left-sidebar ${sidebarOpen ? '' : 'collapsed'} ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
                 <div className="sidebar-top">
                     <div className="brand" onClick={() => !sidebarOpen && setSidebarOpen(true)} style={{ cursor: !sidebarOpen ? 'pointer' : 'default' }}>
-                        <span className="brand-icon">✨</span>
+                        <span className="brand-icon"><IconSparkles size={14}/></span>
                         <span className="brand-text">PharmaVoice</span>
                     </div>
                     <button className="icon-btn tooltip-btn" title="Đóng sidebar" onClick={() => setSidebarOpen(false)}>
@@ -720,7 +721,7 @@ const AudioRecorder = () => {
                             <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
                             <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
                         </svg>
-                        <span>📊 Dashboard</span>
+                        <span><IconChartLine size={16}/> Dashboard</span>
                     </button>
                 )}
 
@@ -863,7 +864,7 @@ const AudioRecorder = () => {
                                     
                                     {msg.processed ? (
                                         <div className="form-success-state">
-                                            ✅ Đã lưu vào Wiki cho: **{msg.identifierUsed}**
+                                            <IconCheck size={14}/> Đã lưu vào Wiki cho: **{msg.identifierUsed}**
                                         </div>
                                     ) : (
                                         <>
@@ -989,7 +990,7 @@ const AudioRecorder = () => {
                     {(current.pendingQueue || []).map((pmsg, pIdx) => (
                         <div key={`pending-${pIdx}`} className="message-row user-row-msg">
                             <div className="msg-bubble-user" style={{ opacity: 0.6, fontStyle: 'italic' }}>
-                                ⏳ Đang chờ: {pmsg}
+                                <IconLoader size={14}/> Đang chờ: {pmsg}
                             </div>
                         </div>
                     ))}

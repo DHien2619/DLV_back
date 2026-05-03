@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import FilterBar, { filtersToQuery } from './FilterBar';
+import { IconAlertTriangle, IconArrowRight, IconChartLine, IconCheck, IconClose, IconCompliance, IconDollar, IconEye, IconFire, IconMoney, IconPhone2, IconStop, IconTrophy, IconWarning } from './icons';
 import './ManagerDashboard.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -35,12 +36,12 @@ export default function ManagerDashboard() {
     <div className="md-root">
       <div className="md-header">
         <div>
-          <h1>📈 Dashboard quản lý</h1>
+          <h1><IconChartLine size={16}/> Dashboard quản lý</h1>
           <p>{team.calls} cuộc gọi trong bộ lọc hiện tại{filter.customerName && <> · KH <b>{filter.customerName}</b></>}</p>
         </div>
         <div className="md-header-actions">
           <Link to="/compliance-queue" className="md-btn-alert">
-            ⚠️ {compliance.total_unreviewed} cần review
+            <IconWarning size={14}/> {compliance.total_unreviewed} cần review
           </Link>
           <Link to="/coach" className="md-btn-ghost">🎓 Coach</Link>
         </div>
@@ -51,27 +52,27 @@ export default function ManagerDashboard() {
       {/* KPI strip */}
       <div className="md-kpis">
         <div className="md-kpi">
-          <small>📞 Cuộc gọi tuần</small>
+          <small><IconPhone2 size={16}/> Cuộc gọi tuần</small>
           <b>{team.calls}</b>
         </div>
         <div className="md-kpi">
-          <small>📊 Q̄ chất lượng</small>
+          <small><IconChartLine size={16}/> Q̄ chất lượng</small>
           <b style={{ color: gradeColor(qualityGrade(team.avg_quality)) }}>{team.avg_quality}</b>
           <span>/100</span>
         </div>
         <div className="md-kpi">
-          <small>💰 Opp̄</small>
+          <small><IconMoney size={16}/> Opp̄</small>
           <b>{team.avg_opportunity}</b>
           <span>/100</span>
         </div>
         <div className="md-kpi md-kpi-compliance">
-          <small>🛡️ Tuân thủ</small>
+          <small><IconCompliance size={16}/> Tuân thủ</small>
           <b>{team.clean_pct}%</b>
           <span>sạch</span>
-          {team.red > 0 && <small className="md-kpi-bad">🔴 {team.red} RED</small>}
+          {team.red > 0 && <small className="md-kpi-bad"><IconAlertTriangle size={14}/> {team.red} RED</small>}
         </div>
         <div className="md-kpi">
-          <small>💵 Pipeline</small>
+          <small><IconDollar size={14}/> Pipeline</small>
           <b style={{ fontSize: 18 }}>{fmtVND(pipeline.total_value_vnd)}</b>
           <span>{pipeline.total_opportunities} deals</span>
         </div>
@@ -80,7 +81,7 @@ export default function ManagerDashboard() {
       <div className="md-grid">
         {/* Leaderboard */}
         <section className="md-card md-card-wide">
-          <h2>🏆 Leaderboard tuần</h2>
+          <h2><IconTrophy size={16}/> Leaderboard tuần</h2>
           <p className="md-sub">Xếp hạng theo quality score trung bình</p>
           {leaderboard.length === 0 ? (
             <div className="md-empty">Chưa có data tuần này</div>
@@ -111,7 +112,7 @@ export default function ManagerDashboard() {
 
         {/* Compliance summary */}
         <section className="md-card">
-          <h2>⚠️ Compliance</h2>
+          <h2><IconWarning size={14}/> Compliance</h2>
           <p className="md-sub">Events chưa review</p>
           <div className="md-comp-buckets">
             <Link to="/compliance-queue?severity=red" className="md-bucket md-bucket-red">
@@ -125,13 +126,13 @@ export default function ManagerDashboard() {
             </Link>
           </div>
           <Link to="/compliance-queue" className="md-bucket-all">
-            Xem hàng đợi → ({compliance.total_unreviewed})
+            Xem hàng đợi <IconArrowRight size={14}/> ({compliance.total_unreviewed})
           </Link>
         </section>
 
         {/* Trend 30d */}
         <section className="md-card md-card-wide">
-          <h2>📉 Xu hướng 30 ngày</h2>
+          <h2><IconChartLine size={16}/> Xu hướng 30 ngày</h2>
           <p className="md-sub">Số cuộc gọi + quality trung bình theo ngày</p>
           {trend.length === 0 ? (
             <div className="md-empty">Chưa có data</div>
@@ -168,7 +169,7 @@ export default function ManagerDashboard() {
 
         {/* Pipeline */}
         <section className="md-card">
-          <h2>💰 Pipeline</h2>
+          <h2><IconMoney size={16}/> Pipeline</h2>
           <p className="md-sub">Cơ hội đang mở</p>
           <div className="md-pipeline-total">
             <b>{fmtVND(pipeline.total_value_vnd)}</b>

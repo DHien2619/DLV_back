@@ -43,7 +43,9 @@ Phat hien rui ro tuan thu va tra ve schema.`
     systemInstruction: SYSTEM,
     parts,
     schema: complianceSchema,
-    temperature: 0.1
+    temperature: 0.1,
+    tier: 'premium', // Pharma compliance is legal-grade — needs Sonnet
+    maxOutputTokens: 4000
   });
 }
 

@@ -26,6 +26,45 @@ const hintSchema = {
 
 const HINT_SYSTEM = `Trich xuat dau hieu nhan dang KH tu transcript cuoc goi. Chi lay nhung gi XUAT HIEN RO trong transcript, khong suy dien. Neu khong ro, dat null.`;
 
+// Vietnamese diacritic-strip + lowercase normalize (for fuzzy comparison).
+function normalizeVi(s) {
+  if (!s) return "";
+  return String(s)
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+// Levenshtein distance (small strings → fine without optimizations).
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const dp = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0]; dp[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1]
+        ? prev
+        : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = tmp;
+    }
+  }
+  return dp[b.length];
+}
+
+// Similarity 0..1 from edit distance (Vietnamese-normalized).
+function nameSimilarity(a, b) {
+  const na = normalizeVi(a), nb = normalizeVi(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.85;
+  const d = levenshtein(na, nb);
+  const maxLen = Math.max(na.length, nb.length);
+  return Math.max(0, 1 - d / maxLen);
+}
+
 /**
  * Extract identification hints from diarized text.
  */
@@ -33,7 +72,9 @@ async function extractHints(diarizedText) {
   const parts = [{ text: `TRANSCRIPT:\n${diarizedText}\n\nTrich dau hieu nhan dang theo schema.` }];
   return generateStructured({
     systemInstruction: HINT_SYSTEM,
-    parts, schema: hintSchema, temperature: 0.0
+    parts, schema: hintSchema, temperature: 0.0,
+    tier: 'fast', // Just extract names/phones — Haiku
+    maxOutputTokens: 1000
   });
 }
 
@@ -64,13 +105,25 @@ async function findCandidates({ supabase, diarizedText, topK = 5 }) {
     }
   }
 
-  // 2) Fuzzy name (trigram via ilike fallback)
+  // 2) Fuzzy name — ilike pre-filter + Vietnamese-normalized Levenshtein re-rank.
+  // Pulls a wider candidate set then scores by edit distance on diacritic-stripped
+  // names → catches typos, missing dấu, last-name only ("Lan" vs "Nguyen Thi Lan").
   if (hints.customer_name) {
     const name = hints.customer_name.trim();
+    const tokens = normalizeVi(name).split(" ").filter(t => t.length >= 2);
+    // Build OR filter: name ILIKE %tok1% OR name ILIKE %tok2% ...
+    const orFilter = tokens.length
+      ? tokens.map(t => `name.ilike.%${t}%`).join(",")
+      : `name.ilike.%${name}%`;
     const { data } = await supabase.from("customers")
       .select("id,name,phone,code,address")
-      .ilike("name", `%${name}%`).limit(5);
-    for (const c of (data || [])) add(c, 0.3, `name match: ${c.name}`);
+      .or(orFilter).limit(20);
+    for (const c of (data || [])) {
+      const sim = nameSimilarity(name, c.name);
+      if (sim >= 0.55) {
+        add(c, 0.3 * sim + (sim > 0.85 ? 0.2 : 0), `name fuzzy ${(sim * 100).toFixed(0)}%: ${c.name}`);
+      }
+    }
   }
 
   // 3) Semantic search over chunks

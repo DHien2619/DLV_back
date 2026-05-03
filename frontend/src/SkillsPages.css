@@ -63,9 +63,15 @@
   padding: 18px 20px;
 }
 .sk-card-wide { grid-column: 1 / -1; }
-.sk-card h2 { margin: 0 0 2px; font-size: 16px; font-weight: 700; }
+.sk-card h2 { margin: 0 0 2px; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+.sk-card h2 svg { color: var(--primary); flex-shrink: 0; }
 .sk-card-sub { margin: 0 0 14px; color: var(--ink-500); font-size: 12px; }
-.sk-card h4 { margin: 8px 0 8px; font-size: 12px; color: var(--ink-600); font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+.sk-card h4 { margin: 8px 0 8px; font-size: 12px; color: var(--ink-600); font-weight: 700; text-transform: uppercase; letter-spacing: .4px; display: inline-flex; align-items: center; gap: 6px; }
+.sk-card h4 svg { color: var(--primary); }
+
+/* Inline label with icon (used in stage/signal/objection labels) */
+.sk-lbl-ico { display: inline-flex; align-items: center; gap: 6px; }
+.sk-lbl-ico svg { flex-shrink: 0; color: var(--ink-600); }
 
 /* Pills */
 .sk-pill {

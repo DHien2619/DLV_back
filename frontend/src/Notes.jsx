@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  IconPlus, IconCheck, IconTrash, IconEdit, IconClock, IconCustomer,
-  IconAlert, IconStar, IconFilter, IconSearch, IconClose, IconMic
-} from './icons';
+import { IconAlert, IconAlertTriangle, IconCheck, IconClock, IconClose, IconCustomer, IconEdit, IconFilter, IconMic, IconPhone2, IconPlus, IconSearch, IconStar, IconTrash } from './icons';
 import './Notes.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -24,7 +21,7 @@ const TYPE_OPTS  = [
   { k: 'all',      label: 'Tất cả' },
   { k: 'note',     label: 'Ghi chú',  icon: '📝' },
   { k: 'reminder', label: 'Nhắc nhở',  icon: '⏰' },
-  { k: 'followup', label: 'Follow-up', icon: '📞' }
+  { k: 'followup', label: 'Follow-up', icon: '' }
 ];
 const PRIORITY_COLOR = { low: 'var(--ink-400)', medium: 'var(--warning)', high: 'var(--danger)' };
 const STATUS_TABS = [
@@ -120,7 +117,7 @@ function NoteModal({ note, onSave, onClose }) {
           <div className="nt-field">
             <label>Loại</label>
             <div className="nt-seg">
-              {[{k:'note',l:'📝 Ghi chú'},{k:'reminder',l:'⏰ Nhắc nhở'},{k:'followup',l:'📞 Follow-up'}].map(t => (
+              {[{k:'note',l:'📝 Ghi chú'},{k:'reminder',l:'⏰ Nhắc nhở'},{k:'followup',l:' Follow-up'}].map(t => (
                 <button key={t.k} type="button" className={form.note_type === t.k ? 'active' : ''}
                   onClick={() => setForm({...form, note_type: t.k})}>{t.l}</button>
               ))}
@@ -130,7 +127,7 @@ function NoteModal({ note, onSave, onClose }) {
           <div className="nt-field">
             <label>Ưu tiên</label>
             <div className="nt-seg">
-              {[{k:'low',l:'Thấp'},{k:'medium',l:'Trung bình'},{k:'high',l:'🔴 Cao'}].map(p => (
+              {[{k:'low',l:'Thấp'},{k:'medium',l:'Trung bình'},{k:'high',l:' Cao'}].map(p => (
                 <button key={p.k} type="button" className={form.priority === p.k ? 'active' : ''}
                   onClick={() => setForm({...form, priority: p.k})}>{p.l}</button>
               ))}
@@ -300,7 +297,7 @@ export default function Notes() {
 
 function NoteCard({ note, onToggle, onEdit, onDelete, navigate }) {
   const n = note;
-  const typeIcon = { note: '📝', reminder: '⏰', followup: '📞' }[n.note_type] || '📝';
+  const typeIcon = { note: '📝', reminder: '⏰', followup: '' }[n.note_type] || '📝';
   const overdue = n.status === 'open' && isOverdue(n.due_date);
 
   return (

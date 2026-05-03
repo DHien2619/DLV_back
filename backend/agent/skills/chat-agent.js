@@ -173,7 +173,8 @@ Tra loi theo schema. Nho: moi citation PHAI co quote nguyen van tu context phia 
     parts: [{ text: userPart }],
     schema: chatResponseSchema,
     temperature: 0.3,
-    maxOutputTokens: 4096
+    tier: 'premium', // Customer RAG reasoning + citations — Sonnet
+    maxOutputTokens: 3000
   });
 
   return {
@@ -239,7 +240,8 @@ async function chatWithCallContext({ supabase, callId, customerId, message, hist
     parts: [{ text: userPart }],
     schema: chatResponseSchema,
     temperature: 0.3,
-    maxOutputTokens: 4096
+    tier: 'premium', // Call-context reasoning — Sonnet
+    maxOutputTokens: 3000
   });
 
   return { ...result, context_used: { call_id: callId, customer_id: effectiveCustId, mode: "call" } };
@@ -273,7 +275,8 @@ NGUYEN TAC:
     parts: [{ text: `${historyBlock ? `LICH SU:\n${historyBlock}\n\n` : ""}CAU HOI: ${message}` }],
     schema: chatResponseSchema,
     temperature: 0.4,
-    maxOutputTokens: 4096
+    tier: 'fast', // General advisor Q&A — Haiku is plenty
+    maxOutputTokens: 2000
   });
 
   return { ...result, context_used: { mode: "advisor" } };

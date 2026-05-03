@@ -1,10 +1,7 @@
 // Shared Canvas tab components — used by CallWorkspace (live analysis)
 // and CallDetail (saved call from DB).
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import {
-  IconTarget, IconTranscript, IconQuality, IconMoney, IconCompliance, IconMemory,
-  IconSparkles, IconScroll, IconClock, IconQuote, IconCheck, IconAlert
-} from './icons';
+import { IconAlert, IconBike, IconChat, IconCheck, IconClock, IconClose, IconCompass, IconCompliance, IconCustomer, IconDollar, IconExternal, IconHandshake, IconHelp, IconLayers, IconMemory, IconMoney, IconPaperclip, IconPill, IconQuality, IconQuote, IconRadio, IconScroll, IconSparkles, IconStethoscope, IconStop, IconSwords, IconTarget, IconTranscript, IconWarning } from './icons';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 
 // ---------- helpers ----------
@@ -12,7 +9,7 @@ export const fmtTime = (sec) => { const s = Math.max(0, Math.floor(sec || 0)); r
 export const fmtVND  = (v) => v ? new Intl.NumberFormat('vi-VN').format(v) + 'đ' : '—';
 export const gradeColor = (g) => ({ A:'#16a34a', B:'#65a30d', C:'#eab308', D:'#f97316', F:'#dc2626' }[g] || '#94a3b8');
 export const sevColor   = (s) => ({ red:'#dc2626', orange:'#f97316', yellow:'#eab308', clean:'#16a34a' }[s] || '#94a3b8');
-export const momentIcon = { buying_signal:'💰', objection:'🛑', adverse_event:'⚠️', commitment:'✅', question_unanswered:'❓', price_mention:'💵', competitor_mention:'🥊', emotional_peak:'💥' };
+export const momentIcon = { buying_signal:'💰', objection:'🛑', adverse_event:'⚠️', commitment:'✓', question_unanswered:'?', price_mention:'$', competitor_mention:'vs', emotional_peak:'💥' };
 export const phaseLabel = { opening:'Mở đầu', discovery:'Khám phá', pitch:'Giới thiệu SP', objection_handling:'Xử lý phản đối', close:'Chốt', wrap_up:'Kết thúc' };
 
 export const TABS = [
@@ -45,7 +42,7 @@ export function CanvasOverview({ analysis, onTabJump }) {
     <div className="cv-over">
       {structure?.summary_short && (
         <div className="cv-card">
-          <h3>📄 Tóm tắt</h3>
+          <h3><IconTranscript size={16}/> Tóm tắt</h3>
           <p className="cv-sum-short">{structure.summary_short}</p>
           {structure.summary_detailed && <p className="cv-sum-long">{structure.summary_detailed}</p>}
         </div>
@@ -76,13 +73,13 @@ export function CanvasOverview({ analysis, onTabJump }) {
       </div>
 
       <div className="cv-card">
-        <h3>🎯 Hành động tiếp theo</h3>
+        <h3><IconTarget size={16}/> Hành động tiếp theo</h3>
         <p className="cv-nba">{opportunity?.next_best_action || 'Chưa có gợi ý.'}</p>
       </div>
 
       {structure?.talk_ratio && (
         <div className="cv-card">
-          <h3>🗣 Tỷ lệ nói</h3>
+          <h3><IconChat size={16}/> Tỷ lệ nói</h3>
           <div className="cv-ratio">
             <div className="cv-ratio-agent" style={{ width: `${structure.talk_ratio.agent_pct}%` }}>NV {structure.talk_ratio.agent_pct}%</div>
             <div className="cv-ratio-cust" style={{ width: `${structure.talk_ratio.customer_pct}%` }}>KH {structure.talk_ratio.customer_pct}%</div>
@@ -93,7 +90,7 @@ export function CanvasOverview({ analysis, onTabJump }) {
 
       {structure?.phases?.length > 0 && (
         <div className="cv-card">
-          <h3>🗂️ Giai đoạn</h3>
+          <h3><IconLayers size={16}/> Giai đoạn</h3>
           <div className="cv-phases">
             {structure.phases.map((p, i) => (
               <div key={i} className="cv-phase">
@@ -108,7 +105,7 @@ export function CanvasOverview({ analysis, onTabJump }) {
 
       {structure?.moments?.length > 0 && (
         <div className="cv-card">
-          <h3>⏰ Khoảnh khắc quan trọng</h3>
+          <h3><IconClock size={14}/> Khoảnh khắc quan trọng</h3>
           {structure.moments.map((m, i) => (
             <button key={i} className="cv-chip cv-chip-signal" onClick={() => onTabJump?.('transcript')}>
               <small>{momentIcon[m.moment_type] || '•'} {m.moment_type} · {fmtTime(m.timestamp_sec)}</small>
@@ -271,7 +268,7 @@ export function CanvasTranscript({ analysis, activeSeg: externalActiveSeg, audio
         </div>
       ) : (
         <div className="cv-tr-no-audio">
-          📎 File audio không còn (đã xử lý xong). Transcript với timestamp vẫn đầy đủ.
+          <IconPaperclip size={14}/> File audio không còn (đã xử lý xong). Transcript với timestamp vẫn đầy đủ.
         </div>
       )}
 
@@ -285,7 +282,7 @@ export function CanvasTranscript({ analysis, activeSeg: externalActiveSeg, audio
             onClick={() => handleSegClick(s, i)}
           >
             <div className="cv-seg-head">
-              <span className="cv-seg-speaker">{s.speaker === 'AGENT' ? '👨‍⚕️ Agent' : s.speaker === 'CUSTOMER' ? '👤 KH' : '❓'}</span>
+              <span className="cv-seg-speaker">{s.speaker === 'AGENT' ? '🏥 Agent' : s.speaker === 'CUSTOMER' ? '👤 KH' : '?'}</span>
               <div className="cv-seg-actions">
                 {canPlay && (
                   <button
@@ -320,8 +317,8 @@ export function CanvasQuality({ analysis, onJump }) {
           {q.overall_grade} · {q.total_score}/100
         </div>
         <div className="cv-q-lists">
-          <div><h4>✅ Điểm mạnh</h4><ul>{q.top_strengths?.map((s,i) => <li key={i}>{s}</li>)}</ul></div>
-          <div><h4>🎯 Cần cải thiện</h4><ul>{q.top_improvements?.map((s,i) => <li key={i}>{s}</li>)}</ul></div>
+          <div><h4><IconCheck size={14}/> Điểm mạnh</h4><ul>{q.top_strengths?.map((s,i) => <li key={i}>{s}</li>)}</ul></div>
+          <div><h4><IconTarget size={16}/> Cần cải thiện</h4><ul>{q.top_improvements?.map((s,i) => <li key={i}>{s}</li>)}</ul></div>
         </div>
       </div>
       <div className="cv-q-rubric">
@@ -338,7 +335,7 @@ export function CanvasQuality({ analysis, onJump }) {
               <small>{x.reasoning}</small>
               {x.evidence?.[0] && (
                 <button className="cv-evidence" onClick={() => onJump?.(x.evidence[0].timestamp_sec)}>
-                  🔗 {fmtTime(x.evidence[0].timestamp_sec)} · "{x.evidence[0].quote.slice(0, 80)}"
+                  <IconExternal size={14}/> {fmtTime(x.evidence[0].timestamp_sec)} · "{x.evidence[0].quote.slice(0, 80)}"
                 </button>
               )}
             </div>
@@ -364,12 +361,12 @@ export function CanvasOpportunity({ analysis, onJump }) {
         <div><small>Tin cậy</small><b>{Math.round((o.confidence || 0) * 100)}%</b></div>
       </div>
       <div className="cv-card cv-nba-card">
-        <h4>🎯 Hành động tiếp theo</h4>
+        <h4><IconTarget size={16}/> Hành động tiếp theo</h4>
         <p>{o.next_best_action}</p>
       </div>
       {o.buying_signals?.length > 0 && (
         <div className="cv-card">
-          <h4>📡 Tín hiệu mua ({o.buying_signals.length})</h4>
+          <h4><IconRadio size={16}/> Tín hiệu mua ({o.buying_signals.length})</h4>
           {o.buying_signals.map((s, i) => (
             <button key={i} className="cv-chip cv-chip-signal" onClick={() => onJump?.(s.timestamp_sec)}>
               <small>[{s.strength}] {s.signal_type} · {fmtTime(s.timestamp_sec)}</small>
@@ -380,10 +377,10 @@ export function CanvasOpportunity({ analysis, onJump }) {
       )}
       {o.objections?.length > 0 && (
         <div className="cv-card">
-          <h4>🛑 Phản đối ({o.objections.length})</h4>
+          <h4><IconStop size={14}/> Phản đối ({o.objections.length})</h4>
           {o.objections.map((ob, i) => (
             <button key={i} className={`cv-chip ${ob.handled_well ? 'cv-chip-handled' : 'cv-chip-missed'}`} onClick={() => onJump?.(ob.timestamp_sec)}>
-              <small>{ob.handled_well ? '✅' : '❌'} {ob.objection_type} · {fmtTime(ob.timestamp_sec)}</small>
+              <small>{ob.handled_well ? '✓' : '✕'} {ob.objection_type} · {fmtTime(ob.timestamp_sec)}</small>
               <span>"{ob.quote}"</span>
               <small className="cv-chip-note">{ob.agent_response_note}</small>
             </button>
@@ -403,11 +400,11 @@ export function CanvasCompliance({ analysis, onJump }) {
   return (
     <div className="cv-comp">
       <div className="cv-comp-head" style={{ background: sevColor(c.overall_status) }}>
-        <b>{c.overall_status === 'clean' ? '✅ CLEAN' : c.overall_status.toUpperCase()}</b>
+        <b>{c.overall_status === 'clean' ? '✓ CLEAN' : c.overall_status.toUpperCase()}</b>
         <span>{c.events?.length || 0} sự kiện phát hiện</span>
       </div>
       {c.events?.length === 0 ? (
-        <p className="cv-empty">✅ Không phát hiện vi phạm nào.</p>
+        <p className="cv-empty"><IconCheck size={14}/> Không phát hiện vi phạm nào.</p>
       ) : (
         c.events.map((e, i) => (
           <div key={i} className={`cv-comp-event sev-${e.severity}`} onClick={() => onJump?.(e.timestamp_sec)}>
@@ -439,7 +436,7 @@ export function CanvasNeeds({ analysis }) {
           {x.evidence_quote && <div className="cv-need-q">"{x.evidence_quote}"</div>}
         </div>
       ))},
-    { key: 'current_medications', label: '💊 Thuốc đang dùng', render: (arr) => arr.map((x,i) => (
+    { key: 'current_medications', label: 'Rx Thuốc đang dùng', render: (arr) => arr.map((x,i) => (
         <div key={i} className="cv-need"><b>{x.name}</b>
           {x.effectiveness && <span className={`cv-eff ${x.effectiveness}`}>{x.effectiveness}</span>}
           {x.evidence_quote && <div className="cv-need-q">"{x.evidence_quote}"</div>}
@@ -447,7 +444,7 @@ export function CanvasNeeds({ analysis }) {
       ))},
     { key: 'allergies', label: '⚠️ Dị ứng', render: (arr) => arr.length ? <ul>{arr.map((a,i)=><li key={i}>{a}</li>)}</ul> : <small>—</small> },
     { key: 'lifestyle_factors', label: '🏃 Lối sống', render: (arr) => arr.length ? <ul>{arr.map((a,i)=><li key={i}>{a}</li>)}</ul> : <small>—</small> },
-    { key: 'unmet_needs', label: '❗ Nhu cầu chưa đáp ứng', render: (arr) => arr.map((x,i) => (
+    { key: 'unmet_needs', label: '! Nhu cầu chưa đáp ứng', render: (arr) => arr.map((x,i) => (
         <div key={i} className="cv-need"><b>{x.need}</b> <span className={`cv-sev ${x.urgency}`}>{x.urgency}</span>
           <div className="cv-need-q">"{x.evidence_quote}"</div>
         </div>
@@ -462,13 +459,13 @@ export function CanvasNeeds({ analysis }) {
       })}
       {n.budget_signals && (
         <div className="cv-card">
-          <h4>💵 Tín hiệu ngân sách</h4>
+          <h4><IconDollar size={14}/> Tín hiệu ngân sách</h4>
           <p>Độ nhạy giá: <b>{n.budget_signals.price_sensitivity}</b> ({n.budget_signals.mentions_count} mentions)</p>
           {n.budget_signals.notes && <p>{n.budget_signals.notes}</p>}
         </div>
       )}
-      {n.decision_style && <div className="cv-card"><h4>🧭 Phong cách quyết định</h4><p>{n.decision_style}</p></div>}
-      {n.family_context && <div className="cv-card"><h4>👨‍👩‍👧 Gia đình</h4><p>{n.family_context}</p></div>}
+      {n.decision_style && <div className="cv-card"><h4><IconCompass size={14}/> Phong cách quyết định</h4><p>{n.decision_style}</p></div>}
+      {n.family_context && <div className="cv-card"><h4><IconHandshake size={14}/> Gia đình</h4><p>{n.family_context}</p></div>}
     </div>
   );
 }

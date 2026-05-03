@@ -11,6 +11,8 @@
 .ws-left {
   display: flex; flex-direction: column; gap: 12px;
   min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .ws-setup {
@@ -19,10 +21,9 @@
   border-radius: var(--radius-lg);
   padding: 16px 18px;
   flex-shrink: 0;
-  max-height: 60%;
-  overflow-y: auto;
+  /* no height cap — expand to content so nothing is hidden behind scroll */
 }
-.ws-setup.compact { max-height: none; padding: 14px 16px; }
+.ws-setup.compact { padding: 14px 16px; }
 .ws-setup h3 {
   margin: 0 0 14px; font-size: 14px; font-weight: 700; color: var(--ink-800);
   display: flex; align-items: center; gap: 8px;

@@ -91,7 +91,9 @@ Trich xuat facts ben vung theo schema.`
     systemInstruction: SYSTEM,
     parts,
     schema: factSchema,
-    temperature: 0.2
+    temperature: 0.2,
+    tier: 'fast', // Fact extraction — Haiku
+    maxOutputTokens: 2000
   });
 }
 

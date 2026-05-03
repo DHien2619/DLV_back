@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { IconCheck, IconClipboard, IconClose, IconLoader, IconPaperclip, IconWarning } from './icons';
 import './BatchUpload.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -138,7 +139,7 @@ export default function BatchUpload({ customerId, onDone, defaultFiles }) {
           style={{ display: 'none' }}
           onChange={(e) => addFiles(e.target.files)}
         />
-        <div className="bu-drop-icon">📎</div>
+        <div className="bu-drop-icon"><IconPaperclip size={14}/></div>
         <div>
           <strong>{items.length ? 'Thêm file khác' : 'Kéo thả file audio vào đây'}</strong>
           <span> hoặc <u>chọn file</u> (có thể chọn nhiều)</span>
@@ -151,10 +152,10 @@ export default function BatchUpload({ customerId, onDone, defaultFiles }) {
           <div className="bu-toolbar">
             <div className="bu-counts">
               <span><b>{counts.total}</b> file</span>
-              {counts.processing > 0 && <span className="bu-c-proc">⏳ {counts.processing} đang xử lý</span>}
-              {counts.queued > 0 && <span className="bu-c-queue">📋 {counts.queued} chờ</span>}
-              {counts.done > 0 && <span className="bu-c-done">✅ {counts.done} xong</span>}
-              {counts.failed > 0 && <span className="bu-c-fail">⚠️ {counts.failed} lỗi</span>}
+              {counts.processing > 0 && <span className="bu-c-proc"><IconLoader size={14}/> {counts.processing} đang xử lý</span>}
+              {counts.queued > 0 && <span className="bu-c-queue"><IconClipboard size={16}/> {counts.queued} chờ</span>}
+              {counts.done > 0 && <span className="bu-c-done"><IconCheck size={14}/> {counts.done} xong</span>}
+              {counts.failed > 0 && <span className="bu-c-fail"><IconWarning size={14}/> {counts.failed} lỗi</span>}
             </div>
             <div className="bu-actions">
               <button className="btn btn-ghost" onClick={clearAll} disabled={running}>
@@ -165,7 +166,7 @@ export default function BatchUpload({ customerId, onDone, defaultFiles }) {
                 onClick={processQueue}
                 disabled={running || counts.queued === 0}
               >
-                {running ? `⏳ Đang xử lý ${counts.processing}/${counts.total}` : `🚀 Phân tích ${counts.queued} file`}
+                {running ? `... Đang xử lý ${counts.processing}/${counts.total}` : `🚀 Phân tích ${counts.queued} file`}
               </button>
             </div>
           </div>
@@ -212,7 +213,7 @@ export default function BatchUpload({ customerId, onDone, defaultFiles }) {
                       {it.result.compliance.toUpperCase()} · {it.result.compliance_events}
                     </span>
                   )}
-                  {it.result?.compliance === 'clean' && <span className="bu-sev bu-sev-clean">✓</span>}
+                  {it.result?.compliance === 'clean' && <span className="bu-sev bu-sev-clean"><IconCheck size={14}/></span>}
                 </span>
                 <span className="bu-item-actions">
                   {it.status === STATUS.DONE && it.result?.saved_call_id && (
@@ -231,7 +232,7 @@ export default function BatchUpload({ customerId, onDone, defaultFiles }) {
                       onClick={() => removeItem(i)}
                       disabled={running}
                       title="Xoá"
-                    >✕</button>
+                    ><IconClose size={14}/></button>
                   )}
                 </span>
               </div>

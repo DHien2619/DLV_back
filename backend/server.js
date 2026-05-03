@@ -312,10 +312,60 @@ PAIN_POINTS severity:
 }
 
 // ── Auth Middleware ───────────────────────────────────────────
-const requireAdmin = (req, res, next) => {
-    req.user = { userId: 1, role: 'admin' };
-    next();
+// Tiny in-memory permissions cache to avoid hitting DB on every request.
+// TTL = 60s. On permission change, admin can call /me to refresh, or just wait 60s.
+const _permCache = new Map(); // userId -> { perms, exp }
+const PERM_TTL_MS = 60 * 1000;
+
+async function loadUserPerms(userId) {
+    const cached = _permCache.get(userId);
+    if (cached && cached.exp > Date.now()) return cached.perms;
+    const { data: u } = await supabase.from('users')
+        .select('role, permissions').eq('id', userId).maybeSingle();
+    const perms = u ? { role: u.role, permissions: u.permissions || {} } : null;
+    if (perms) _permCache.set(userId, { perms, exp: Date.now() + PERM_TTL_MS });
+    return perms;
+}
+
+const requireAuth = (req, res, next) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Token required' });
+    jwt.verify(token, process.env.JWT_SECRET, (err, payload) => {
+        if (err) return res.status(401).json({ message: 'Invalid token' });
+        req.user = payload; // { userId, role }
+        next();
+    });
 };
+
+const requireAdmin = (req, res, next) => {
+    requireAuth(req, res, () => {
+        if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+        next();
+    });
+};
+
+// Permission middleware factory. Admin always passes.
+// Usage: app.get('/api/v2/skills/quality', requirePermission('view_skills'), handler)
+const requirePermission = (perm) => (req, res, next) => {
+    requireAuth(req, res, async () => {
+        if (req.user.role === 'admin') return next();
+        try {
+            const userPerms = await loadUserPerms(req.user.userId);
+            if (!userPerms) return res.status(401).json({ message: 'User not found' });
+            if (userPerms.role === 'admin') return next();
+            if (!userPerms.permissions?.[perm]) {
+                return res.status(403).json({ message: `Cần quyền: ${perm}` });
+            }
+            req.user.permissions = userPerms.permissions;
+            next();
+        } catch (e) {
+            res.status(500).json({ message: 'Permission check failed: ' + e.message });
+        }
+    });
+};
+
+// Invalidate permission cache for a user (call after admin updates their permissions/role)
+const invalidatePermCache = (userId) => _permCache.delete(userId);
 
 // ── ROUTES ────────────────────────────────────────────────────
 
@@ -326,16 +376,21 @@ app.get('/', (req, res) => {
 // User registration
 app.post('/register', async (req, res) => {
     try {
-        const { name, email, password, image } = req.body;
-        if (!name || !email || !password || !image) {
-            return res.status(400).json({ message: 'All fields are required' });
+        const { name, email, password, image, role } = req.body;
+        if (!name || !email || !password) {
+            return res.status(400).json({ message: 'Tên, email, mật khẩu là bắt buộc' });
         }
-        const { data: existingUser } = await supabase.from('users').select('*').eq('email', email).single();
-        if (existingUser) return res.status(400).json({ message: 'User already exists' });
+        const { data: existingUser } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+        if (existingUser) return res.status(400).json({ message: 'Email đã được sử dụng' });
+
+        // First user becomes admin automatically; subsequent users default to 'staff'
+        const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+        const userCount = count || 0;
+        const assignedRole = userCount === 0 ? 'admin' : (role === 'admin' ? 'staff' : (role || 'staff'));
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const { data: newUser, error: insertErr } = await supabase.from('users').insert([{
-            name, email, password: hashedPassword, image, role: 'user'
+            name, email, password: hashedPassword, image: image || null, role: assignedRole
         }]).select().single();
         if (insertErr) throw insertErr;
 
@@ -343,7 +398,250 @@ app.post('/register', async (req, res) => {
         res.status(201).json({ token, user: { id: newUser.id, name: newUser.name, email: newUser.email, image: newUser.image, role: newUser.role } });
     } catch (error) {
         console.error("Error registering user:", error.message);
-        res.status(500).json({ message: 'Error registering user', error: error.message });
+        res.status(500).json({ message: 'Lỗi khi đăng ký', error: error.message });
+    }
+});
+
+// ===========================================================
+// Supabase Auth — verify access_token, find/create app user
+// ===========================================================
+// Frontend uses supabase.auth.signInWithOAuth({provider:'google'}) which
+// returns a session. We get the access_token, send it here, verify it
+// via supabase.auth.getUser(), then find/create our app user (with role)
+// and return OUR app JWT for backwards compatibility with existing endpoints.
+app.post('/auth/supabase', async (req, res) => {
+    try {
+        const { access_token } = req.body;
+        if (!access_token) return res.status(400).json({ message: 'access_token required' });
+
+        // Verify with Supabase
+        const { data: sbData, error: sbErr } = await supabase.auth.getUser(access_token);
+        if (sbErr || !sbData?.user) {
+            return res.status(401).json({ message: 'Invalid Supabase token: ' + (sbErr?.message || 'no user') });
+        }
+        const sbUser = sbData.user;
+        const email = sbUser.email;
+        const name = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || email.split('@')[0];
+        const picture = sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture || null;
+
+        if (!email) return res.status(400).json({ message: 'Email missing in Supabase user' });
+
+        // Find or create user in our users table
+        let { data: user } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
+        if (!user) {
+            const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+            const assignedRole = (count || 0) === 0 ? 'admin' : 'staff';
+            const placeholderPwd = await bcrypt.hash(`supabase_oauth_${sbUser.id}_${Date.now()}`, 10);
+            const { data: newUser, error: insertErr } = await supabase.from('users').insert([{
+                name, email, password: placeholderPwd, image: picture, role: assignedRole
+            }]).select().single();
+            if (insertErr) throw insertErr;
+            user = newUser;
+        } else if (!user.image && picture) {
+            await supabase.from('users').update({ image: picture }).eq('id', user.id);
+            user.image = picture;
+        }
+
+        const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '8h' });
+        res.json({
+            token,
+            user: { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role }
+        });
+    } catch (error) {
+        console.error('[Supabase Auth] failed:', error.message);
+        res.status(500).json({ message: 'Supabase auth failed: ' + error.message });
+    }
+});
+
+// (Legacy direct-Google endpoint kept for backwards compat — not used now)
+const { OAuth2Client } = require('google-auth-library');
+const googleAuthClient = new OAuth2Client();
+
+app.post('/auth/google', async (req, res) => {
+    try {
+        const { credential } = req.body;
+        if (!credential) return res.status(400).json({ message: 'Google credential required' });
+
+        const GOOGLE_CLIENT_ID = (process.env.GOOGLE_OAUTH_CLIENT_ID || '').trim();
+        if (!GOOGLE_CLIENT_ID) return res.status(500).json({ message: 'Google OAuth chưa được cấu hình (GOOGLE_OAUTH_CLIENT_ID)' });
+
+        // Verify token signature + audience
+        const ticket = await googleAuthClient.verifyIdToken({
+            idToken: credential,
+            audience: GOOGLE_CLIENT_ID
+        });
+        const payload = ticket.getPayload();
+        const { email, name, picture, sub: googleId, email_verified } = payload;
+
+        if (!email_verified) return res.status(401).json({ message: 'Email chưa xác minh trên Google' });
+
+        // Find existing user by email
+        let { data: user } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
+
+        if (!user) {
+            // First user becomes admin
+            const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+            const assignedRole = (count || 0) === 0 ? 'admin' : 'staff';
+
+            // Create new user with placeholder password (Google-only user)
+            const placeholderPwd = await bcrypt.hash(`google_oauth_${googleId}_${Date.now()}`, 10);
+            const { data: newUser, error: insertErr } = await supabase.from('users').insert([{
+                name: name || email.split('@')[0],
+                email,
+                password: placeholderPwd,
+                image: picture || null,
+                role: assignedRole
+            }]).select().single();
+            if (insertErr) throw insertErr;
+            user = newUser;
+        } else {
+            // Update profile picture if missing
+            if (!user.image && picture) {
+                await supabase.from('users').update({ image: picture }).eq('id', user.id);
+                user.image = picture;
+            }
+        }
+
+        const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '8h' });
+        res.json({
+            token,
+            user: { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role }
+        });
+    } catch (error) {
+        console.error('[Google OAuth] verify failed:', error.message);
+        res.status(401).json({ message: 'Google sign-in thất bại: ' + error.message });
+    }
+});
+
+// Get current user (verify token)
+app.get('/me', requireAuth, async (req, res) => {
+    try {
+        const { data: user } = await supabase.from('users')
+            .select('id, name, email, image, role, permissions, phone, title, created_at')
+            .eq('id', req.user.userId).single();
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.json({ user });
+    } catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
+// Update own profile (name, image, phone, title)
+app.patch('/me/profile', requireAuth, async (req, res) => {
+    try {
+        const { name, image, phone, title } = req.body;
+        const updates = {};
+        if (name !== undefined)  updates.name  = name;
+        if (image !== undefined) updates.image = image;
+        if (phone !== undefined) updates.phone = phone;
+        if (title !== undefined) updates.title = title;
+        if (Object.keys(updates).length === 0) return res.status(400).json({ message: 'Không có gì để cập nhật' });
+
+        const { data, error } = await supabase.from('users').update(updates)
+            .eq('id', req.user.userId)
+            .select('id, name, email, image, role, permissions, phone, title')
+            .single();
+        if (error) throw error;
+        res.json({ user: data });
+    } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Change password (via Supabase Auth Admin API would be better,
+// but we can also let user use Supabase's built-in flow client-side).
+// This endpoint validates intent, then frontend uses supabase.auth.updateUser() directly.
+app.post('/me/password-check', requireAuth, async (req, res) => {
+    // Just verify the user exists; actual password change happens via Supabase client
+    try {
+        const { data: user } = await supabase.from('users').select('id, email').eq('id', req.user.userId).single();
+        res.json({ ok: true, email: user?.email });
+    } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// List all users (admin only) — for managing staff
+app.get('/api/users', requireAdmin, async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('users')
+            .select('id, name, email, role, image, permissions, phone, title, created_at')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        res.json(data || []);
+    } catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
+// Update user role (admin only) — kept for back-compat
+app.patch('/api/users/:id/role', requireAdmin, async (req, res) => {
+    try {
+        const { role } = req.body;
+        if (!['admin', 'staff'].includes(role)) return res.status(400).json({ message: 'Role phải là admin hoặc staff' });
+        const { data, error } = await supabase.from('users').update({ role }).eq('id', req.params.id).select().single();
+        if (error) throw error;
+        invalidatePermCache(req.params.id);
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
+// Full user update (role, permissions, name, etc.) — admin only
+const ALLOWED_PERMISSIONS = [
+    'view_all_calls',
+    'view_dashboard',
+    'view_compliance_queue',
+    'view_skills',
+    'coach_team',
+    'manage_users',
+    'delete_calls',
+    'export_data'
+];
+
+app.patch('/api/users/:id', requireAdmin, async (req, res) => {
+    try {
+        const { role, permissions, name, title, phone } = req.body;
+        const updates = {};
+        if (role !== undefined) {
+            if (!['admin', 'staff'].includes(role)) return res.status(400).json({ message: 'Role phải là admin hoặc staff' });
+            updates.role = role;
+        }
+        if (permissions !== undefined && typeof permissions === 'object') {
+            // Sanitize: only allow whitelisted keys
+            const sanitized = {};
+            for (const k of ALLOWED_PERMISSIONS) {
+                if (k in permissions) sanitized[k] = !!permissions[k];
+            }
+            updates.permissions = sanitized;
+        }
+        if (name  !== undefined) updates.name  = name;
+        if (title !== undefined) updates.title = title;
+        if (phone !== undefined) updates.phone = phone;
+
+        if (Object.keys(updates).length === 0) return res.status(400).json({ message: 'Không có gì để cập nhật' });
+
+        const { data, error } = await supabase.from('users').update(updates)
+            .eq('id', req.params.id)
+            .select('id, name, email, role, image, permissions, phone, title, created_at')
+            .single();
+        if (error) throw error;
+        invalidatePermCache(req.params.id);
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
+// Delete user (admin only)
+app.delete('/api/users/:id', requireAdmin, async (req, res) => {
+    try {
+        if (Number(req.params.id) === Number(req.user.userId)) {
+            return res.status(400).json({ message: 'Không thể xóa chính mình' });
+        }
+        const { error } = await supabase.from('users').delete().eq('id', req.params.id);
+        if (error) throw error;
+        invalidatePermCache(req.params.id);
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ message: e.message });
     }
 });
 
@@ -554,7 +852,7 @@ app.get('/dashboard', requireAdmin, async (req, res) => {
 });
 
 // EXPORT TO GOOGLE SHEETS
-app.post('/export-sheets', requireAdmin, async (req, res) => {
+app.post('/export-sheets', requirePermission('export_data'), async (req, res) => {
     try {
         const { rows, exportName } = req.body;
         if (!serviceAccountAuth) return res.status(500).json({ message: "Chưa cấu hình Google Credentials trên Server" });
@@ -587,8 +885,8 @@ app.post('/export-sheets', requireAdmin, async (req, res) => {
     }
 });
 
-// DELETE transcription
-app.delete('/delete/:id', async (req, res) => {
+// DELETE transcription (legacy table). Kept for backward compat — v2 uses /api/v2/calls/:id
+app.delete('/delete/:id', requirePermission('delete_calls'), async (req, res) => {
     const { id } = req.params;
     if (!id) return res.status(400).send({ message: "Transcription ID is required" });
     try {
@@ -753,11 +1051,11 @@ app.get('/customers', async (req, res) => {
 const { analyzeCall } = require('./agent/pipeline');
 const { analyzeCallV2 } = require('./agent/pipeline-v2');
 const { findCandidates } = require('./agent/skills/customer-matcher');
-const { buildCustomerContext } = require('./agent/skills/memory-agent');
+const { buildCustomerContext, extractFacts, applyFacts } = require('./agent/skills/memory-agent');
 const { chatWithCustomerHistory, chatWithCallContext, chatAdvisor } = require('./agent/skills/chat-agent');
 
 // ---------- Chat Agent RAG (scoped per customer) ----------
-app.post('/api/v2/customers/:id/chat', async (req, res) => {
+app.post('/api/v2/customers/:id/chat', requireAuth, async (req, res) => {
     const t0 = Date.now();
     try {
         const { message, history = [] } = req.body;
@@ -781,7 +1079,7 @@ app.post('/api/v2/customers/:id/chat', async (req, res) => {
 });
 
 // ---------- Customers CRUD ----------
-app.get('/api/v2/customers', async (req, res) => {
+app.get('/api/v2/customers', requireAuth, async (req, res) => {
     try {
         const { q, limit = 50 } = req.query;
         let query = supabase.from('customers').select('*').order('updated_at', { ascending: false }).limit(limit);
@@ -792,7 +1090,7 @@ app.get('/api/v2/customers', async (req, res) => {
     } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-app.post('/api/v2/customers', async (req, res) => {
+app.post('/api/v2/customers', requireAuth, async (req, res) => {
     try {
         const { name, phone, code, age, gender, address, source, tags } = req.body;
         if (!name) return res.status(400).json({ message: 'name is required' });
@@ -804,7 +1102,7 @@ app.post('/api/v2/customers', async (req, res) => {
     } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-app.get('/api/v2/customers/:id', async (req, res) => {
+app.get('/api/v2/customers/:id', requireAuth, async (req, res) => {
     try {
         const [{ data: customer }, { data: calls }, { data: memory }, { data: opps }] = await Promise.all([
             supabase.from('customers').select('*').eq('id', req.params.id).single(),
@@ -821,7 +1119,7 @@ app.get('/api/v2/customers/:id', async (req, res) => {
 });
 
 // ---------- Unified Agent Chat (all modes) ----------
-app.post('/api/v2/agent/chat', async (req, res) => {
+app.post('/api/v2/agent/chat', requireAuth, async (req, res) => {
     const t0 = Date.now();
     try {
         const { message, history = [], customerId, callId, mode } = req.body;
@@ -849,7 +1147,7 @@ app.post('/api/v2/agent/chat', async (req, res) => {
 });
 
 // ---------- V2 Analyze STREAMING (NDJSON progress events) ----------
-app.post('/api/v2/calls/analyze-stream', upload.single('file'), async (req, res) => {
+app.post('/api/v2/calls/analyze-stream', requireAuth, upload.single('file'), async (req, res) => {
     const t0 = Date.now();
     // NDJSON streaming
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
@@ -916,7 +1214,7 @@ const detectAudioMime = (req) => {
     return EXT_TO_MIME[ext] || 'audio/mpeg';
 };
 
-app.post('/api/v2/calls/analyze-v2', upload.single('file'), async (req, res) => {
+app.post('/api/v2/calls/analyze-v2', requireAuth, upload.single('file'), async (req, res) => {
     const t0 = Date.now();
     try {
         if (!req.file) return res.status(400).json({ message: 'No file uploaded.' });
@@ -951,7 +1249,7 @@ app.post('/api/v2/calls/analyze-v2', upload.single('file'), async (req, res) => 
 });
 
 // ---------- Rep Today Dashboard ----------
-app.get('/api/v2/rep/:userId/today', async (req, res) => {
+app.get('/api/v2/rep/:userId/today', requireAuth, async (req, res) => {
     try {
         const userId = req.params.userId;
         const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
@@ -1051,7 +1349,7 @@ function applyCallFilters(q, filters) {
 // ============================================================
 // CALL HISTORY — list all calls with filters + pagination
 // ============================================================
-app.get('/api/v2/calls/history', async (req, res) => {
+app.get('/api/v2/calls/history', requireAuth, async (req, res) => {
     try {
         const { from, to } = getDateRange(req.query);
         const filters = { from, to, customerId: req.query.customerId, repId: req.query.repId };
@@ -1118,7 +1416,7 @@ app.get('/api/v2/calls/history', async (req, res) => {
 // Helper: quality grade from score
 const gradeOf = (s) => { if (s==null) return '—'; if (s>=90) return 'A'; if (s>=75) return 'B'; if (s>=60) return 'C'; if (s>=40) return 'D'; return 'F'; };
 
-app.get('/api/v2/dashboard/manager', async (req, res) => {
+app.get('/api/v2/dashboard/manager', requirePermission('view_dashboard'), async (req, res) => {
     try {
         const { from, to } = getDateRange(req.query);
         const filters = { from, to, customerId: req.query.customerId };
@@ -1225,7 +1523,7 @@ app.get('/api/v2/dashboard/manager', async (req, res) => {
 });
 
 // Compliance queue — list unreviewed events
-app.get('/api/v2/compliance/events', async (req, res) => {
+app.get('/api/v2/compliance/events', requirePermission('view_compliance_queue'), async (req, res) => {
     try {
         const { severity, reviewed } = req.query;
         let q = supabase.from('compliance_events')
@@ -1260,7 +1558,7 @@ app.get('/api/v2/compliance/events', async (req, res) => {
 });
 
 // Mark compliance event reviewed
-app.post('/api/v2/compliance/events/:id/review', async (req, res) => {
+app.post('/api/v2/compliance/events/:id/review', requirePermission('view_compliance_queue'), async (req, res) => {
     try {
         const { note, reviewerId } = req.body;
         const { data, error } = await supabase.from('compliance_events').update({
@@ -1275,7 +1573,7 @@ app.post('/api/v2/compliance/events/:id/review', async (req, res) => {
 });
 
 // Coach view per rep
-app.get('/api/v2/coach/rep/:userId', async (req, res) => {
+app.get('/api/v2/coach/rep/:userId', requirePermission('coach_team'), async (req, res) => {
     try {
         const userId = req.params.userId;
         const start30d = new Date(); start30d.setDate(start30d.getDate() - 30);
@@ -1354,7 +1652,7 @@ app.get('/api/v2/coach/rep/:userId', async (req, res) => {
 });
 
 // List reps for coach picker
-app.get('/api/v2/coach/reps', async (req, res) => {
+app.get('/api/v2/coach/reps', requirePermission('coach_team'), async (req, res) => {
     try {
         const start30d = new Date(); start30d.setDate(start30d.getDate() - 30);
         const { data: calls } = await supabase.from('calls')
@@ -1389,7 +1687,7 @@ const CRIT_KEYS = ['identity_verification','medical_discovery','indication_appro
                    'empathy_listening','professional_close','compliance_language'];
 
 // Quality skill — rubric aggregates, distribution, worst criteria, top examples
-app.get('/api/v2/skills/quality', async (req, res) => {
+app.get('/api/v2/skills/quality', requirePermission('view_skills'), async (req, res) => {
     try {
         const { from, to } = getDateRange(req.query);
         const filters = { from, to, customerId: req.query.customerId, repId: req.query.repId };
@@ -1472,7 +1770,7 @@ app.get('/api/v2/skills/quality', async (req, res) => {
 });
 
 // Opportunity skill — funnel, signals, objections, value trend
-app.get('/api/v2/skills/opportunity', async (req, res) => {
+app.get('/api/v2/skills/opportunity', requirePermission('view_skills'), async (req, res) => {
     try {
         const { from, to } = getDateRange(req.query);
         const filters = { from, to, customerId: req.query.customerId, repId: req.query.repId };
@@ -1537,7 +1835,7 @@ app.get('/api/v2/skills/opportunity', async (req, res) => {
 });
 
 // Compliance skill — events by type, severity trend, top violators
-app.get('/api/v2/skills/compliance', async (req, res) => {
+app.get('/api/v2/skills/compliance', requirePermission('view_skills'), async (req, res) => {
     try {
         const { from, to } = getDateRange(req.query);
         let q = supabase.from('compliance_events')
@@ -1596,7 +1894,7 @@ app.get('/api/v2/skills/compliance', async (req, res) => {
 });
 
 // Memory skill — facts across all customers
-app.get('/api/v2/skills/memory', async (req, res) => {
+app.get('/api/v2/skills/memory', requirePermission('view_skills'), async (req, res) => {
     try {
         const { from, to } = getDateRange(req.query);
         let q = supabase.from('customer_memory')
@@ -1658,7 +1956,7 @@ app.get('/api/v2/skills/memory', async (req, res) => {
 });
 
 // ---------- Get saved call (v2 canonical) ----------
-app.get('/api/v2/calls2/:id', async (req, res) => {
+app.get('/api/v2/calls2/:id', requireAuth, async (req, res) => {
     try {
         const { data: call, error } = await supabase.from('calls').select('*').eq('id', req.params.id).single();
         if (error || !call) return res.status(404).json({ message: 'Not found' });
@@ -1672,23 +1970,55 @@ app.get('/api/v2/calls2/:id', async (req, res) => {
 });
 
 // ---------- Confirm customer match after analysis ----------
-app.post('/api/v2/calls2/:id/assign-customer', async (req, res) => {
+// When a call was analyzed before the customer was identified, all derived rows
+// (chunks, opportunities, compliance events) were stored with customer_id=null
+// AND memory facts were skipped entirely. This endpoint relinks everything and
+// backfills the memory facts so the customer's profile reflects the call.
+app.post('/api/v2/calls2/:id/assign-customer', requireAuth, async (req, res) => {
     try {
         const { customer_id } = req.body;
+        const callId = req.params.id;
         if (!customer_id) return res.status(400).json({ message: 'customer_id required' });
-        const { data, error } = await supabase.from('calls')
+
+        // Update calls row
+        const { data: callRow, error } = await supabase.from('calls')
             .update({ customer_id, customer_identified: true })
-            .eq('id', req.params.id).select().single();
+            .eq('id', callId).select().single();
         if (error) throw error;
-        // Also link call_chunks
-        await supabase.from('call_chunks').update({ customer_id }).eq('call_id', req.params.id);
-        res.json({ success: true, call: data });
+
+        // Synchronous relink — small UPDATEs, fast, no need to defer
+        await Promise.all([
+            supabase.from('call_chunks').update({ customer_id }).eq('call_id', callId),
+            supabase.from('opportunities').update({ customer_id }).eq('call_id', callId),
+            supabase.from('compliance_events').update({ customer_id }).eq('call_id', callId),
+        ]);
+
+        // Memory backfill — fire-and-forget so the response stays fast.
+        // Re-runs fact extraction on the saved transcript with the customer's
+        // existing facts as context (so duplicates get deduped via supersede).
+        if (callRow?.transcript_raw) {
+            (async () => {
+                try {
+                    const existing = await buildCustomerContext({ supabase, customerId: customer_id });
+                    const { facts } = await extractFacts({
+                        diarizedText: callRow.transcript_raw,
+                        existingContext: existing
+                    });
+                    const r = await applyFacts({ supabase, customerId: customer_id, callId, facts });
+                    console.log(`[assign-customer] memory backfill call=${callId} cust=${customer_id}: +${r.inserted}/~${r.updated}/superseded ${r.superseded}`);
+                } catch (e) {
+                    console.error(`[assign-customer] memory backfill failed:`, e.message);
+                }
+            })();
+        }
+
+        res.json({ success: true, call: callRow });
     } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 // Analyze uploaded audio file and return full structured analysis.
 // Optionally persists to transcriptions table (new columns) if user_id provided.
-app.post('/api/v2/calls/analyze', upload.single('file'), async (req, res) => {
+app.post('/api/v2/calls/analyze', requireAuth, upload.single('file'), async (req, res) => {
     const t0 = Date.now();
     try {
         if (!req.file) return res.status(400).json({ message: "No file uploaded." });
@@ -1756,7 +2086,7 @@ app.post('/api/v2/calls/analyze', upload.single('file'), async (req, res) => {
 });
 
 // Fetch a previously-analyzed call by transcription id (returns insights JSON)
-app.get('/api/v2/calls/:id', async (req, res) => {
+app.get('/api/v2/calls/:id', requireAuth, async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('transcriptions')
@@ -1770,10 +2100,27 @@ app.get('/api/v2/calls/:id', async (req, res) => {
     }
 });
 
+// Hard-delete a v2 call + cascading cleanup. Requires `delete_calls` permission.
+// Cleans up related rows so RAG/memory queries don't return orphan data.
+app.delete('/api/v2/calls/:id', requirePermission('delete_calls'), async (req, res) => {
+    try {
+        const callId = req.params.id;
+        // Cascade: chunks, opportunities, compliance events first, then call row
+        await supabase.from('call_chunks').delete().eq('call_id', callId);
+        await supabase.from('opportunities').delete().eq('call_id', callId);
+        await supabase.from('compliance_events').delete().eq('call_id', callId);
+        const { error } = await supabase.from('calls').delete().eq('id', callId);
+        if (error) throw error;
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
 // ============================================================
 // NOTES / REMINDERS / FOLLOW-UP
 // ============================================================
-app.get('/api/v2/notes', async (req, res) => {
+app.get('/api/v2/notes', requireAuth, async (req, res) => {
     try {
         const { status, type, customerId, priority, due, limit = 100 } = req.query;
         const user = JSON.parse(req.headers['x-user'] || '{}');
@@ -1809,7 +2156,7 @@ app.get('/api/v2/notes', async (req, res) => {
     } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-app.post('/api/v2/notes', async (req, res) => {
+app.post('/api/v2/notes', requireAuth, async (req, res) => {
     try {
         const { title, body, note_type, priority, due_date, customer_id, call_id, tags } = req.body;
         if (!title) return res.status(400).json({ message: 'title required' });
@@ -1829,7 +2176,7 @@ app.post('/api/v2/notes', async (req, res) => {
     } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-app.put('/api/v2/notes/:id', async (req, res) => {
+app.put('/api/v2/notes/:id', requireAuth, async (req, res) => {
     try {
         const updates = {};
         const allowed = ['title','body','note_type','priority','status','due_date','customer_id','call_id','tags'];
@@ -1842,7 +2189,7 @@ app.put('/api/v2/notes/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-app.delete('/api/v2/notes/:id', async (req, res) => {
+app.delete('/api/v2/notes/:id', requireAuth, async (req, res) => {
     try {
         const { error } = await supabase.from('notes').delete().eq('id', req.params.id);
         if (error) throw error;
@@ -1851,7 +2198,7 @@ app.delete('/api/v2/notes/:id', async (req, res) => {
 });
 
 // Quick toggle done/open
-app.post('/api/v2/notes/:id/toggle', async (req, res) => {
+app.post('/api/v2/notes/:id/toggle', requireAuth, async (req, res) => {
     try {
         const { data: note } = await supabase.from('notes').select('status').eq('id', req.params.id).single();
         if (!note) return res.status(404).json({ message: 'not found' });

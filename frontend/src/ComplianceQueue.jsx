@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { IconAlert, IconAlertTriangle, IconArrowLeft, IconBaby, IconCalendar, IconCheck, IconClipboard, IconCompliance, IconCustomer, IconHand, IconHeartPulse, IconHelp, IconLightbulb, IconLoader, IconPill, IconSwords, IconTarget, IconUnlock, IconWarning } from './icons';
 import './ComplianceQueue.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -9,13 +10,13 @@ const fmtDate = (s) => s ? new Date(s).toLocaleString('vi-VN') : '—';
 const EVENT_TYPE_LABEL = {
   adverse_event: '⚕️ Adverse event',
   off_label_claim: '📋 Off-label claim',
-  guarantee_cure: '✋ Hứa chữa khỏi',
-  pregnancy_risk_ignored: '🤰 Bỏ qua rủi ro thai kỳ',
-  drug_interaction_missed: '💊 Bỏ qua tương tác thuốc',
-  underage_recommendation: '👶 Khuyên cho trẻ em',
-  competitor_disparagement: '🥊 Chê bai đối thủ',
+  guarantee_cure: 'Hand Hứa chữa khỏi',
+  pregnancy_risk_ignored: 'Baby Bỏ qua rủi ro thai kỳ',
+  drug_interaction_missed: 'Rx Bỏ qua tương tác thuốc',
+  underage_recommendation: 'Baby Khuyên cho trẻ em',
+  competitor_disparagement: 'vs Chê bai đối thủ',
   personal_data_leak: '🔓 Lộ dữ liệu KH',
-  other: '❓ Khác'
+  other: '? Khác'
 };
 
 export default function ComplianceQueue() {
@@ -70,7 +71,7 @@ export default function ComplianceQueue() {
     <div className="cq-root">
       <div className="cq-header">
         <div>
-          <h1>🛡️ Compliance Queue</h1>
+          <h1><IconCompliance size={16}/> Compliance Queue</h1>
           <p>Hàng đợi review cho compliance officer — {events.length} events</p>
         </div>
       </div>
@@ -82,13 +83,13 @@ export default function ComplianceQueue() {
             Tất cả ({events.length})
           </button>
           <button className={`cq-filter cq-f-red ${filter.severity==='red' ? 'active' : ''}`} onClick={() => setSeverity('red')}>
-            🔴 RED {counts.red ? `(${counts.red})` : ''}
+            <IconAlertTriangle size={14}/> RED {counts.red ? `(${counts.red})` : ''}
           </button>
           <button className={`cq-filter cq-f-orange ${filter.severity==='orange' ? 'active' : ''}`} onClick={() => setSeverity('orange')}>
-            🟠 ORANGE {counts.orange ? `(${counts.orange})` : ''}
+            <IconWarning size={14}/> ORANGE {counts.orange ? `(${counts.orange})` : ''}
           </button>
           <button className={`cq-filter cq-f-yellow ${filter.severity==='yellow' ? 'active' : ''}`} onClick={() => setSeverity('yellow')}>
-            🟡 YELLOW {counts.yellow ? `(${counts.yellow})` : ''}
+            <IconAlert size={14}/> YELLOW {counts.yellow ? `(${counts.yellow})` : ''}
           </button>
         </div>
         <div className="cq-filter-group">
@@ -108,7 +109,7 @@ export default function ComplianceQueue() {
         <div className="cq-loading">Đang tải…</div>
       ) : events.length === 0 ? (
         <div className="cq-empty">
-          <div className="cq-empty-icon">✅</div>
+          <div className="cq-empty-icon"><IconCheck size={14}/></div>
           <h3>Không có event nào</h3>
           <p>Tuân thủ sạch! Không có vi phạm cần review trong bộ lọc này.</p>
         </div>
@@ -125,11 +126,11 @@ export default function ComplianceQueue() {
                 <div className="cq-item-head">
                   <span className={`cq-sev cq-sev-${e.severity}`}>{e.severity.toUpperCase()}</span>
                   <b>{EVENT_TYPE_LABEL[e.event_type] || e.event_type}</b>
-                  {e.reviewed && <span className="cq-reviewed-badge">✓</span>}
+                  {e.reviewed && <span className="cq-reviewed-badge"><IconCheck size={14}/></span>}
                 </div>
                 <div className="cq-item-meta">
-                  <span>👤 {e.customer?.name || 'KH unknown'}</span>
-                  {e.call?.created_at && <span>📅 {new Date(e.call.created_at).toLocaleDateString('vi-VN')}</span>}
+                  <span><IconCustomer size={14}/> {e.customer?.name || 'KH unknown'}</span>
+                  {e.call?.created_at && <span><IconCalendar size={14}/> {new Date(e.call.created_at).toLocaleDateString('vi-VN')}</span>}
                   {e.timestamp_sec != null && <span>⏱ {fmtTime(e.timestamp_sec)}</span>}
                 </div>
                 <div className="cq-item-quote">"{e.quote?.slice(0, 120)}{e.quote?.length > 120 ? '…' : ''}"</div>
@@ -141,7 +142,7 @@ export default function ComplianceQueue() {
           <div className="cq-detail">
             {!selected ? (
               <div className="cq-detail-empty">
-                <p>← Chọn 1 event để xem chi tiết và review</p>
+                <p><IconArrowLeft size={14}/> Chọn 1 event để xem chi tiết và review</p>
               </div>
             ) : (
               <>
@@ -163,12 +164,12 @@ export default function ComplianceQueue() {
                 </div>
 
                 <div className="cq-section">
-                  <h4>💡 Lý do vi phạm</h4>
+                  <h4><IconLightbulb size={14}/> Lý do vi phạm</h4>
                   <p>{selected.explanation}</p>
                 </div>
 
                 <div className="cq-section">
-                  <h4>🎯 Khuyến nghị xử lý</h4>
+                  <h4><IconTarget size={16}/> Khuyến nghị xử lý</h4>
                   <p>{selected.recommended_action}</p>
                 </div>
 
@@ -180,7 +181,7 @@ export default function ComplianceQueue() {
                   )}
                   {selected.customer_id && (
                     <button className="cq-btn-ghost" onClick={() => navigate(`/customers/${selected.customer_id}`)}>
-                      👤 Xem KH
+                      <IconCustomer size={14}/> Xem KH
                     </button>
                   )}
                 </div>
@@ -189,7 +190,7 @@ export default function ComplianceQueue() {
                   <h4>✍️ Review</h4>
                   {selected.reviewed ? (
                     <div className="cq-reviewed-box">
-                      <p>✅ Đã review lúc {fmtDate(selected.reviewed_at)}</p>
+                      <p><IconCheck size={14}/> Đã review lúc {fmtDate(selected.reviewed_at)}</p>
                       {selected.review_note && <p className="cq-review-note">{selected.review_note}</p>}
                     </div>
                   ) : (
@@ -201,7 +202,7 @@ export default function ComplianceQueue() {
                         rows={3}
                       />
                       <button className="btn btn-primary" onClick={markReviewed} disabled={saving}>
-                        {saving ? '⏳ Đang lưu…' : '✅ Đánh dấu đã review'}
+                        {saving ? '... Đang lưu…' : '✓ Đánh dấu đã review'}
                       </button>
                     </>
                   )}

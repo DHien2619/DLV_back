@@ -12,7 +12,13 @@ import {
   RefreshCw, Loader2, ThumbsUp, ThumbsDown, MoreHorizontal, LayoutDashboard,
   Package, ListChecks, BookOpen, Workflow, Database, Headphones, Star,
   ChevronDown, ChevronUp, Hash, Tag, MapPin, DollarSign, CreditCard,
-  Gauge, Lightbulb, PanelLeft, PanelRight
+  Gauge, Lightbulb, PanelLeft, PanelRight,
+  // ── extras for SkillsPages refactor ──
+  Truck, ShoppingCart, Lock, Unlock, Swords, Baby, Radio, Microscope,
+  StopCircle, Ban, Pin, ClipboardList, HeartPulse, Frown, Hand, PhoneCall,
+  Compass, Bike, HeartHandshake, Smile, Pyramid, ChartLine, Filter as FilterIcon,
+  CircleSlash, ArrowDownToLine, FlaskConical, BadgeAlert, Bookmark, BookmarkCheck,
+  Layers, Network, Sigma, Crown
 } from 'lucide-react';
 
 const DEFAULT_STROKE = 1.75;
@@ -122,3 +128,37 @@ export const IconList         = wrap(ListChecks);
 export const IconPanelLeft    = wrap(PanelLeft);
 export const IconPanelRight   = wrap(PanelRight);
 export const IconScroll       = wrap(ScrollText);
+
+// -------- Skills page extras --------
+export const IconTruck         = wrap(Truck);
+export const IconCart          = wrap(ShoppingCart);
+export const IconLock          = wrap(Lock);
+export const IconUnlock        = wrap(Unlock);
+export const IconSwords        = wrap(Swords);
+export const IconBaby          = wrap(Baby);
+export const IconRadio         = wrap(Radio);
+export const IconMicroscope    = wrap(Microscope);
+export const IconStop          = wrap(StopCircle);
+export const IconBan           = wrap(Ban);
+export const IconPin           = wrap(Pin);
+export const IconClipboard     = wrap(ClipboardList);
+export const IconHeartPulse    = wrap(HeartPulse);
+export const IconFrown         = wrap(Frown);
+export const IconHand          = wrap(Hand);
+export const IconPhone2        = wrap(PhoneCall);
+export const IconCompass       = wrap(Compass);
+export const IconBike          = wrap(Bike);
+export const IconHandshake     = wrap(HeartHandshake);
+export const IconSmile         = wrap(Smile);
+export const IconFunnel        = wrap(Pyramid);
+export const IconChartLine     = wrap(ChartLine);
+export const IconCircleSlash   = wrap(CircleSlash);
+export const IconArrowDownLine = wrap(ArrowDownToLine);
+export const IconFlask         = wrap(FlaskConical);
+export const IconBadgeAlert    = wrap(BadgeAlert);
+export const IconBookmark      = wrap(Bookmark);
+export const IconBookmarkCheck = wrap(BookmarkCheck);
+export const IconLayers        = wrap(Layers);
+export const IconNetwork       = wrap(Network);
+export const IconSigma         = wrap(Sigma);
+export const IconCrown         = wrap(Crown);

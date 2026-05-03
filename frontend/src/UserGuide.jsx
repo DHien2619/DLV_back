@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   IconAnalyze, IconHome, IconHistory, IconCustomers, IconSparkles,
@@ -7,24 +7,25 @@ import {
   IconUpload, IconSearch, IconFilter, IconChevronDown, IconChevronUp,
   IconCheck, IconArrowRight, IconPlay, IconMic, IconBook,
   IconChat, IconTarget, IconActivity, IconPill, IconHeart,
-  IconTrendUp, IconStar, IconLightbulb, IconAlert, IconInfo
+  IconTrendUp, IconStar, IconLightbulb, IconAlert, IconInfo,
+  IconSettings, IconCustomer, IconHeadphones, IconDatabase, IconWorkflow,
+  IconRefresh
 } from './icons';
 import './UserGuide.css';
 
-/* ── one expandable section ───────────────────────────── */
-function Section({ id, icon, title, subtitle, children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
+/* ── one expandable section (controlled) ─────────────── */
+function Section({ id, icon, title, subtitle, children, isOpen, onToggle }) {
   return (
-    <div className={`ug-section ${open ? 'open' : ''}`} id={id}>
-      <button className="ug-section-head" onClick={() => setOpen(!open)}>
+    <div className={`ug-section ${isOpen ? 'open' : ''}`} id={id}>
+      <button className="ug-section-head" onClick={onToggle}>
         <span className="ug-section-icon">{icon}</span>
         <div className="ug-section-text">
           <b>{title}</b>
           <small>{subtitle}</small>
         </div>
-        <span className="ug-section-chevron">{open ? <IconChevronUp size={18}/> : <IconChevronDown size={18}/>}</span>
+        <span className="ug-section-chevron">{isOpen ? <IconChevronUp size={18}/> : <IconChevronDown size={18}/>}</span>
       </button>
-      {open && <div className="ug-section-body">{children}</div>}
+      {isOpen && <div className="ug-section-body">{children}</div>}
     </div>
   );
 }
@@ -41,6 +42,17 @@ function Warning({ children }) {
   return <div className="ug-warn"><IconAlert size={15}/> <span>{children}</span></div>;
 }
 
+function Badge({ tone = 'indigo', children }) {
+  return <span className={`ug-badge ug-badge-${tone}`}>{children}</span>;
+}
+
+// Inline icon helper for h4/h5 inside section body
+function H({ icon, children }) {
+  return (
+    <span className="ug-h-icon"><span>{icon}</span> {children}</span>
+  );
+}
+
 function FeatureCard({ icon, title, desc, to }) {
   return (
     <Link to={to} className="ug-fcard">
@@ -54,26 +66,61 @@ function FeatureCard({ icon, title, desc, to }) {
 
 /* ── MAIN ─────────────────────────────────────────────── */
 export default function UserGuide() {
-  const [tocOpen, setTocOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('overview');
+  const [openSections, setOpenSections] = useState(() => new Set(['overview']));
+
+  const isOpen = (id) => openSections.has(id);
+  const toggle = (id) => setOpenSections(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const openSection = (id) => setOpenSections(prev => new Set(prev).add(id));
 
   const TOC = [
-    { id: 'overview',    label: 'Tổng quan hệ thống' },
-    { id: 'analyze',     label: 'Phân tích cuộc gọi' },
-    { id: 'results',     label: 'Xem kết quả phân tích' },
-    { id: 'history',     label: 'Lịch sử phân tích' },
-    { id: 'customers',   label: 'Quản lý khách hàng' },
-    { id: 'agent',       label: 'Agent AI (Trợ lý)' },
-    { id: 'skills',      label: 'Kỹ năng AI' },
-    { id: 'management',  label: 'Quản lý & Coaching' },
-    { id: 'notes',       label: 'Ghi chú' },
-    { id: 'mobile',      label: 'Sử dụng trên Mobile' },
-    { id: 'faq',         label: 'Câu hỏi thường gặp' },
+    { id: 'overview',     label: 'Tổng quan' },
+    { id: 'whats-new',    label: 'Nhật ký cập nhật', badge: 'v2.3' },
+    { id: 'analyze',      label: 'Phân tích cuộc gọi' },
+    { id: 'audio',        label: 'Nghe lại audio' },
+    { id: 'results',      label: 'Xem kết quả phân tích' },
+    { id: 'history',      label: 'Lịch sử phân tích' },
+    { id: 'customers',    label: 'Quản lý khách hàng' },
+    { id: 'agent',        label: 'Agent AI (3 modes)' },
+    { id: 'rbac',         label: 'Phân quyền & Vai trò', badge: 'NEW' },
+    { id: 'settings',     label: 'Cài đặt tài khoản', badge: 'NEW' },
+    { id: 'usermgmt',     label: 'Quản lý người dùng', badge: 'NEW' },
+    { id: 'skills',       label: 'Kỹ năng AI' },
+    { id: 'management',   label: 'Quản lý & Coaching' },
+    { id: 'notes',        label: 'Ghi chú' },
+    { id: 'tech-stack',   label: 'Công nghệ AI bên trong' },
+    { id: 'mobile',       label: 'Sử dụng trên Mobile' },
+    { id: 'faq',          label: 'Câu hỏi thường gặp' },
   ];
 
   const scrollTo = (id) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTocOpen(false);
+    openSection(id); // auto-expand on tab click
+    // wait one tick for expansion to render before scrolling
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
+
+  // Scroll-spy for TOC highlighting
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) setActiveSection(e.target.id);
+        });
+      },
+      { rootMargin: '-30% 0px -60% 0px' }
+    );
+    TOC.forEach(t => {
+      const el = document.getElementById(t.id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="ug-root">
@@ -82,380 +129,637 @@ export default function UserGuide() {
         <div className="ug-hero-icon"><IconBook size={32}/></div>
         <h1>Hướng dẫn sử dụng</h1>
         <p>PharmaVoice — Trợ lý AI phân tích cuộc gọi bán hàng dược phẩm</p>
+        <div className="ug-hero-meta">
+          <span><IconDatabase size={12}/> v2.3 · Claude + Groq Stack</span>
+          <span><IconWorkflow size={12}/> 9 modules · 8 permissions · 3 chat modes</span>
+        </div>
       </div>
 
-      {/* Quick nav */}
+      {/* Quick nav cards */}
       <div className="ug-quick-nav">
         <h3>Truy cập nhanh</h3>
         <div className="ug-fcards">
-          <FeatureCard icon={<IconAnalyze size={20}/>} title="Phân tích cuộc gọi" desc="Upload & phân tích tự động" to="/"/>
+          <FeatureCard icon={<IconAnalyze size={20}/>} title="Phân tích cuộc gọi" desc="Upload & AI phân tích tự động" to="/"/>
           <FeatureCard icon={<IconSparkles size={20}/>} title="Agent AI" desc="Hỏi đáp thông minh" to="#"/>
           <FeatureCard icon={<IconCustomers size={20}/>} title="Khách hàng" desc="Hồ sơ & trí nhớ KH" to="/customers"/>
           <FeatureCard icon={<IconHistory size={20}/>} title="Lịch sử" desc="Tra cứu cuộc gọi cũ" to="/history"/>
+          <FeatureCard icon={<IconSettings size={20}/>} title="Cài đặt" desc="Đổi info, mật khẩu, avatar" to="/settings"/>
+          <FeatureCard icon={<IconDraft size={20}/>} title="Ghi chú" desc="Task & follow-up" to="/my/drafts"/>
         </div>
       </div>
 
-      {/* Table of contents (collapsible on mobile) */}
-      <div className="ug-toc-wrap">
-        <button className="ug-toc-toggle" onClick={() => setTocOpen(!tocOpen)}>
-          Mục lục ({TOC.length} phần)
-          {tocOpen ? <IconChevronUp size={16}/> : <IconChevronDown size={16}/>}
-        </button>
-        <ol className={`ug-toc ${tocOpen ? 'open' : ''}`}>
+      {/* Horizontal sticky TOC tabs */}
+      <nav className="ug-toc-tabs">
+        <div className="ug-toc-tabs-inner">
           {TOC.map((t, i) => (
-            <li key={t.id}>
-              <button onClick={() => scrollTo(t.id)}>
-                <span className="ug-toc-n">{i + 1}</span>
-                {t.label}
-              </button>
-            </li>
+            <button
+              key={t.id}
+              className={`ug-toc-tab ${activeSection === t.id ? 'active' : ''}`}
+              onClick={() => scrollTo(t.id)}
+            >
+              <span className="ug-toc-n">{String(i + 1).padStart(2, '0')}</span>
+              <span className="ug-toc-label">{t.label}</span>
+              {t.badge && <span className="ug-toc-badge">{t.badge}</span>}
+            </button>
           ))}
-        </ol>
-      </div>
-
-      {/* ── SECTIONS ──────────────────────────────── */}
-
-      <Section id="overview" icon={<IconInfo size={20}/>} title="Tổng quan hệ thống" subtitle="PharmaVoice là gì và có gì đặc biệt" defaultOpen>
-        <p>
-          <b>PharmaVoice</b> là nền tảng AI phân tích cuộc gọi bán hàng dược phẩm, giúp doanh nghiệp:
-        </p>
-        <ul>
-          <li><b>Phân tích tự động</b> — Upload file ghi âm, AI phân tích toàn diện trong vài phút</li>
-          <li><b>Chấm điểm chất lượng</b> — Rubric 9 tiêu chí, cho điểm A-F với feedback chi tiết</li>
-          <li><b>Phát hiện cơ hội</b> — AI nhận diện tín hiệu mua hàng, giai đoạn bán hàng</li>
-          <li><b>Kiểm tra tuân thủ</b> — Tự động phát hiện vi phạm quảng cáo dược phẩm</li>
-          <li><b>Trí nhớ khách hàng</b> — Lưu trữ thông tin y tế, sản phẩm đã dùng, sở thích</li>
-          <li><b>Agent AI</b> — Hỏi đáp thông minh dựa trên dữ liệu thực tế</li>
-        </ul>
-
-        <h4>Các module chính</h4>
-        <div className="ug-module-grid">
-          <div className="ug-mod"><IconAnalyze size={18}/> <b>Phân tích cuộc gọi</b><br/><small>Upload & AI phân tích real-time</small></div>
-          <div className="ug-mod"><IconHome size={18}/> <b>Dashboard Hôm nay</b><br/><small>Tổng hợp hiệu suất hàng ngày</small></div>
-          <div className="ug-mod"><IconHistory size={18}/> <b>Lịch sử phân tích</b><br/><small>Tra cứu toàn bộ cuộc gọi</small></div>
-          <div className="ug-mod"><IconCustomers size={18}/> <b>Quản lý khách hàng</b><br/><small>CRM + trí nhớ AI</small></div>
-          <div className="ug-mod"><IconSparkles size={18}/> <b>Agent AI</b><br/><small>Trợ lý hỏi đáp thông minh</small></div>
-          <div className="ug-mod"><IconDashboard size={18}/> <b>Bảng điều khiển</b><br/><small>Phân tích hiệu suất đội ngũ</small></div>
-          <div className="ug-mod"><IconCoach size={18}/> <b>Huấn luyện viên</b><br/><small>AI coaching cá nhân hóa</small></div>
-          <div className="ug-mod"><IconDraft size={18}/> <b>Ghi chú</b><br/><small>Quản lý task & follow-up</small></div>
         </div>
-      </Section>
+      </nav>
 
-      <Section id="analyze" icon={<IconAnalyze size={20}/>} title="Phân tích cuộc gọi" subtitle="Upload file ghi âm và để AI phân tích tự động">
-        <h4>Cách phân tích cuộc gọi</h4>
-        <Step n={1}>
-          <b>Chọn khách hàng</b> — Tại trang <Link to="/">Phân tích cuộc gọi</Link>, gõ tên khách hàng vào ô tìm kiếm.
-          Nếu chưa có, nhấn <b>"Tạo mới"</b> để thêm nhanh.
-        </Step>
-        <Step n={2}>
-          <b>Upload file ghi âm</b> — Kéo thả file MP3/WAV/M4A vào vùng upload, hoặc nhấn <b>"Chọn file"</b>.
-          Hỗ trợ file tối đa 25MB.
-        </Step>
-        <Step n={3}>
-          <b>Nhấn "Bắt đầu phân tích"</b> — AI sẽ xử lý qua các bước:
-          <ul>
-            <li><IconMic size={14}/> Diarize — Tách lời agent và khách hàng</li>
-            <li><IconQuality size={14}/> Quality — Chấm điểm chất lượng tư vấn</li>
-            <li><IconTarget size={14}/> Opportunity — Phát hiện cơ hội bán hàng</li>
-            <li><IconCompliance size={14}/> Compliance — Kiểm tra tuân thủ</li>
-            <li><IconActivity size={14}/> Structure — Phân tích cấu trúc cuộc gọi</li>
-          </ul>
-        </Step>
-        <Step n={4}>
-          <b>Xem kết quả</b> — Sau khi phân tích xong, kết quả hiển thị ngay trên trang với các tab chi tiết.
-        </Step>
+      {/* Content full-width */}
+      <div className="ug-layout">
+        <div className="ug-content">
 
-        <Tip>Bạn có thể phân tích nhiều file liên tiếp — mỗi file tự động lưu vào lịch sử.</Tip>
-        <Tip>AI sẽ tự động nhận diện ngôn ngữ tiếng Việt và các thuật ngữ dược phẩm.</Tip>
+          {/* ── 1. OVERVIEW ─────────────────────── */}
+          <Section id="overview" isOpen={isOpen('overview')} onToggle={() => toggle('overview')} icon={<IconInfo size={20}/>} title="Tổng quan hệ thống" subtitle="PharmaVoice là gì và có gì đặc biệt">
+            <p>
+              <b>PharmaVoice</b> là nền tảng AI phân tích cuộc gọi bán hàng dược phẩm, biến mỗi cuộc điện thoại
+              thành dữ liệu hành động: chấm điểm chất lượng, phát hiện cơ hội bán hàng, kiểm tra tuân thủ, ghi nhớ
+              khách hàng — tự động trong vài phút.
+            </p>
 
-        <h4>Tiến độ phân tích real-time</h4>
-        <p>
-          Trong quá trình phân tích, bạn sẽ thấy <b>thanh tiến độ</b> hiển thị từng bước AI đang xử lý.
-          Mỗi kỹ năng (Quality, Opportunity, Compliance...) được chạy song song để tối ưu thời gian.
-        </p>
-
-        <h4>Upload hàng loạt (Batch)</h4>
-        <p>
-          Chọn nhiều file cùng lúc để phân tích hàng loạt. Hệ thống sẽ xử lý tuần tự và thông báo khi hoàn tất.
-        </p>
-      </Section>
-
-      <Section id="results" icon={<IconStar size={20}/>} title="Xem kết quả phân tích" subtitle="Hiểu các chỉ số và tab kết quả">
-        <h4>Các tab kết quả</h4>
-
-        <div className="ug-result-tabs">
-          <div className="ug-rtab">
-            <b>Tổng quan</b>
-            <p>Tóm tắt cuộc gọi, điểm quality tổng, opportunity score, compliance status. Bao gồm AI summary ngắn gọn về nội dung cuộc gọi.</p>
-          </div>
-          <div className="ug-rtab">
-            <b>Transcript</b>
-            <p>Bản gỡ băng đầy đủ với phân biệt Agent (xanh) và Khách hàng (trắng). Có thời gian từng đoạn. Click vào đoạn để nhảy tới vị trí audio.</p>
-          </div>
-          <div className="ug-rtab">
-            <b>Chất lượng</b>
-            <p>Chi tiết 9 tiêu chí chấm điểm: Mở đầu, Khám phá nhu cầu, Kiến thức sản phẩm, Xử lý phản đối, Kỹ năng chốt, Ngôn ngữ, Empathy, Luồng cuộc gọi, Tuân thủ. Mỗi tiêu chí có điểm, feedback, và timestamp evidence.</p>
-          </div>
-          <div className="ug-rtab">
-            <b>Cơ hội</b>
-            <p>Opportunity score (0-100), giai đoạn bán hàng (cold → ready_to_buy), tín hiệu mua tích cực/tiêu cực, next best action recommended.</p>
-          </div>
-          <div className="ug-rtab">
-            <b>Tuân thủ</b>
-            <p>Danh sách các vi phạm (nếu có) với mức độ: <span style={{color:'#eab308'}}>Vàng</span> (nhẹ), <span style={{color:'#f97316'}}>Cam</span> (trung bình), <span style={{color:'#dc2626'}}>Đỏ</span> (nghiêm trọng). Kèm đoạn trích dẫn và đề xuất sửa.</p>
-          </div>
-          <div className="ug-rtab">
-            <b>Nhu cầu</b>
-            <p>AI trích xuất các nhu cầu được nhắc đến: triệu chứng, bệnh lý, mong muốn, lo ngại. Giúp hiểu KH cần gì.</p>
-          </div>
-        </div>
-
-        <h4>Hiểu điểm Quality (A-F)</h4>
-        <div className="ug-grade-legend">
-          <span className="ug-grade" style={{background:'#16a34a'}}>A (85-100)</span>
-          <span className="ug-grade" style={{background:'#65a30d'}}>B (70-84)</span>
-          <span className="ug-grade" style={{background:'#eab308'}}>C (55-69)</span>
-          <span className="ug-grade" style={{background:'#f97316'}}>D (40-54)</span>
-          <span className="ug-grade" style={{background:'#dc2626'}}>F (0-39)</span>
-        </div>
-        <p>Điểm dựa trên rubric 9 tiêu chí trọng số khác nhau, phản ánh chất lượng tư vấn thực tế.</p>
-
-        <Tip>Nhấn vào từng tiêu chí quality để xem feedback chi tiết và timestamp trong bản ghi.</Tip>
-      </Section>
-
-      <Section id="history" icon={<IconHistory size={20}/>} title="Lịch sử phân tích" subtitle="Tra cứu, lọc, tìm kiếm cuộc gọi đã phân tích">
-        <h4>Tìm kiếm & Lọc</h4>
-        <Step n={1}>
-          <b>Bộ lọc thời gian</b> — Chọn: Hôm nay / Tuần này / Tháng này / Quý này / Năm nay, hoặc khoảng ngày tùy chỉnh.
-        </Step>
-        <Step n={2}>
-          <b>Lọc theo khách hàng</b> — Gõ tên khách hàng để lọc cuộc gọi của riêng KH đó.
-        </Step>
-        <Step n={3}>
-          <b>Lọc Compliance</b> — Chọn Tất cả / Sạch / Vàng / Cam / Đỏ để lọc theo mức vi phạm.
-        </Step>
-        <Step n={4}>
-          <b>Tìm trong transcript</b> — Gõ từ khóa vào ô tìm kiếm để tìm cuộc gọi có nhắc đến từ khóa đó.
-        </Step>
-
-        <h4>Xem chi tiết</h4>
-        <p>Nhấn vào bất kỳ dòng nào trong bảng để mở trang <b>Chi tiết cuộc gọi</b> với đầy đủ kết quả phân tích.</p>
-
-        <Tip>Trang chi tiết hiển thị header với Quality · Opportunity · Compliance cùng lúc, giúp đánh giá nhanh.</Tip>
-      </Section>
-
-      <Section id="customers" icon={<IconCustomers size={20}/>} title="Quản lý khách hàng" subtitle="CRM tích hợp trí nhớ AI">
-        <h4>Danh sách khách hàng</h4>
-        <p>
-          Trang <Link to="/customers">Khách hàng</Link> hiển thị tất cả KH với:
-        </p>
-        <ul>
-          <li>Tên, số điện thoại, nguồn (hotline/web/referral)</li>
-          <li>Số cuộc gọi đã phân tích, quality trung bình</li>
-          <li>Compliance status tổng hợp</li>
-          <li>Ngày tương tác gần nhất</li>
-        </ul>
-
-        <h4>Chi tiết khách hàng</h4>
-        <p>Click vào KH để xem:</p>
-        <ul>
-          <li><b>Trí nhớ AI</b> — Hệ thống tự động lưu: bệnh lý, thuốc đang dùng, dị ứng, sở thích, phong cách quyết định</li>
-          <li><b>Danh sách cuộc gọi</b> — Tất cả cuộc gọi đã phân tích với KH này</li>
-          <li><b>Cơ hội bán hàng</b> — Opportunity pipeline, sản phẩm quan tâm</li>
-          <li><b>Ghi chú</b> — Notes và follow-up liên quan KH</li>
-        </ul>
-
-        <h4>Thêm khách hàng mới</h4>
-        <Step n={1}>Cách 1: Tại trang <Link to="/">Phân tích cuộc gọi</Link>, gõ tên → nhấn <b>"Tạo mới"</b></Step>
-        <Step n={2}>Cách 2: Tại trang <Link to="/customers">Khách hàng</Link>, nhấn nút <b>"+ Thêm KH"</b></Step>
-
-        <Tip>Trí nhớ AI tự động cập nhật sau mỗi cuộc gọi — không cần nhập tay!</Tip>
-      </Section>
-
-      <Section id="agent" icon={<IconSparkles size={20}/>} title="Agent AI (Trợ lý thông minh)" subtitle="Hỏi đáp dựa trên dữ liệu thực tế — sử dụng mọi lúc, mọi nơi">
-        <h4>Mở Agent</h4>
-        <p>
-          Nhấn nút <b>sparkles</b> ở giữa thanh navigation (mobile) hoặc nút <b>"Agent AI"</b> ở sidebar (desktop).
-          Agent sẽ slide lên từ dưới (mobile) hoặc mở panel bên phải (desktop).
-        </p>
-
-        <h4>3 chế độ Agent</h4>
-        <div className="ug-agent-modes">
-          <div className="ug-amode" style={{borderColor:'#16a34a'}}>
-            <div className="ug-amode-head"><IconMic size={16}/> <b>Phân tích cuộc gọi</b></div>
-            <p>Khi bạn đang xem <b>Chi tiết cuộc gọi</b> (/call/:id), Agent tự động scope vào cuộc gọi đó. Hỏi:</p>
+            <h4>Giá trị mang lại</h4>
             <ul>
-              <li>"Tóm tắt cuộc gọi này"</li>
-              <li>"Điểm yếu nhất của nhân viên?"</li>
-              <li>"Có vi phạm tuân thủ nào?"</li>
-              <li>"Hành động tiếp theo nên làm gì?"</li>
+              <li><b>Phân tích tự động 100% cuộc gọi</b> — không cần QA review thủ công</li>
+              <li><b>Chấm điểm rubric 9 tiêu chí</b> — feedback chi tiết với evidence + timestamp</li>
+              <li><b>Phát hiện cơ hội bán hàng</b> — buying signals + giai đoạn bán + giá trị ước tính</li>
+              <li><b>Kiểm tra tuân thủ tự động</b> — phát hiện vi phạm Luật Quảng cáo Dược phẩm VN</li>
+              <li><b>Trí nhớ khách hàng</b> — RAG semantic search trên toàn bộ lịch sử KH</li>
+              <li><b>Agent AI thông minh</b> — 3 chế độ hỏi đáp dựa trên ngữ cảnh thực tế</li>
+              <li><b>Phân quyền chi tiết</b> — Admin cấp 8 capability cho từng staff</li>
             </ul>
-          </div>
-          <div className="ug-amode" style={{borderColor:'#4f46e5'}}>
-            <div className="ug-amode-head"><IconCustomers size={16}/> <b>Hỏi đáp khách hàng</b></div>
-            <p>Khi bạn đang xem <b>Chi tiết khách hàng</b> (/customers/:id), Agent scope vào KH đó. Hỏi:</p>
+
+            <h4>9 module chính</h4>
+            <div className="ug-module-grid">
+              <div className="ug-mod"><IconAnalyze size={18}/> <b>Phân tích cuộc gọi</b><br/><small>Upload & AI phân tích real-time</small></div>
+              <div className="ug-mod"><IconHome size={18}/> <b>Dashboard Hôm nay</b><br/><small>Tổng hợp hiệu suất hàng ngày</small></div>
+              <div className="ug-mod"><IconHistory size={18}/> <b>Lịch sử phân tích</b><br/><small>Tra cứu toàn bộ cuộc gọi</small></div>
+              <div className="ug-mod"><IconCustomers size={18}/> <b>Quản lý khách hàng</b><br/><small>CRM + trí nhớ AI</small></div>
+              <div className="ug-mod"><IconSparkles size={18}/> <b>Agent AI</b><br/><small>Trợ lý hỏi đáp thông minh</small></div>
+              <div className="ug-mod"><IconDashboard size={18}/> <b>Bảng điều khiển</b><br/><small>Phân tích hiệu suất đội ngũ</small></div>
+              <div className="ug-mod"><IconCoach size={18}/> <b>Huấn luyện viên</b><br/><small>AI coaching cá nhân hóa</small></div>
+              <div className="ug-mod"><IconDraft size={18}/> <b>Ghi chú</b><br/><small>Quản lý task & follow-up</small></div>
+              <div className="ug-mod"><IconSettings size={18}/> <b>Cài đặt</b><br/><small>Profile, mật khẩu, quyền</small></div>
+            </div>
+          </Section>
+
+          {/* ── 2. WHAT'S NEW — visual changelog ─────────────────────── */}
+          <Section id="whats-new" isOpen={isOpen('whats-new')} onToggle={() => toggle('whats-new')} icon={<IconStar size={20}/>} title="Nhật ký cập nhật" subtitle="Lịch sử các phiên bản — mới nhất ở trên cùng">
+
+            <div className="ug-changelog">
+
+              {/* ── Release v2.3 (current) ─────── */}
+              <article className="ug-release ug-release-current">
+                <header className="ug-release-head">
+                  <div className="ug-release-version-block">
+                    <span className="ug-release-version">v2.3</span>
+                    <span className="ug-release-flag">MỚI NHẤT</span>
+                  </div>
+                  <div className="ug-release-title-block">
+                    <h3>Bảo mật & Robustness</h3>
+                    <span className="ug-release-date">03/05/2026</span>
+                  </div>
+                </header>
+
+                <div className="ug-release-grid">
+                  <div className="ug-change ug-change-security">
+                    <div className="ug-change-icon"><IconCompliance size={16}/></div>
+                    <div className="ug-change-cat">Bảo mật · Critical fix</div>
+                    <h5>JWT auth bắt buộc trên toàn API</h5>
+                    <p>Tất cả 27 endpoints <code>/api/v2/*</code> nay yêu cầu xác thực JWT. Trước đây bất kỳ ai cũng có thể upload, xem dữ liệu, xóa note — đã đóng hoàn toàn lỗ hổng này.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-security">
+                    <div className="ug-change-icon"><IconSettings size={16}/></div>
+                    <div className="ug-change-cat">Bảo mật · Permission</div>
+                    <h5>Capability check theo role</h5>
+                    <p>4 trang Skills cần <code>view_skills</code>, Dashboard cần <code>view_dashboard</code>, Coach cần <code>coach_team</code>, Compliance Queue cần <code>view_compliance_queue</code>. Có cache permissions 60s trên server để giảm DB hit.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-ai">
+                    <div className="ug-change-icon"><IconMic size={16}/></div>
+                    <div className="ug-change-cat">AI Pipeline · Diarize</div>
+                    <h5>Fallback diarize thông minh hơn</h5>
+                    <p>Khi Claude labeling fail, chuyển từ alternating ngây thơ sang heuristic regex tiếng Việt: nhận diện AGENT qua "em/nhà thuốc/sản phẩm", CUSTOMER qua "tôi/đau/bao nhiêu". Phát hiện turn-change qua silence &gt; 1.2s hoặc câu hỏi.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-ai">
+                    <div className="ug-change-icon"><IconSearch size={16}/></div>
+                    <div className="ug-change-cat">AI Pipeline · Matching</div>
+                    <h5>Customer matcher fuzzy theo tiếng Việt</h5>
+                    <p>Levenshtein distance trên tên đã strip dấu + lowercase. Match được "Lan" với "Nguyễn Thị Lan", chịu được typo, thiếu dấu. Threshold 0.55 cơ bản, boost &gt; 0.85.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-reliability">
+                    <div className="ug-change-icon"><IconRefresh size={16}/></div>
+                    <div className="ug-change-cat">Reliability · Retry</div>
+                    <h5>Auto retry async persist</h5>
+                    <p>Embed chunks, insert vào <code>call_chunks</code>, extract memory facts giờ retry 3 lần với exponential backoff (300/900/2700ms). Không còn silent failure khi Supabase tạm lag.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-ux">
+                    <div className="ug-change-icon"><IconRefresh size={16}/></div>
+                    <div className="ug-change-cat">UX · Auth flow</div>
+                    <h5>Auto redirect khi token hết hạn</h5>
+                    <p>Frontend patch global <code>fetch</code>: tự động inject JWT cho mọi request <code>/api/v2/*</code>, và auto redirect về <code>/login</code> khi nhận 401. Không còn phải copy token thủ công, không còn màn hình trắng.</p>
+                  </div>
+                </div>
+
+                <Tip>Bản này tự động kích hoạt. Nếu bạn đang đăng nhập sẵn, chỉ cần reload — token cũ vẫn dùng được.</Tip>
+              </article>
+
+              {/* ── Release v2.2 ─────── */}
+              <article className="ug-release">
+                <header className="ug-release-head">
+                  <div className="ug-release-version-block">
+                    <span className="ug-release-version">v2.2</span>
+                    <span className="ug-release-flag-stable">STABLE</span>
+                  </div>
+                  <div className="ug-release-title-block">
+                    <h3>RBAC + Audio playback + Stack AI mới</h3>
+                    <span className="ug-release-date">04/2026</span>
+                  </div>
+                </header>
+
+                <div className="ug-release-grid">
+                  <div className="ug-change ug-change-feature">
+                    <div className="ug-change-icon"><IconHeadphones size={16}/></div>
+                    <div className="ug-change-cat">Tính năng mới</div>
+                    <h5>Phát lại audio trong transcript</h5>
+                    <p>Tab "Phiên âm" có audio player đầy đủ: play/pause, seek, skip ±10s, speed 0.75x–2x, mute. Mỗi đoạn transcript có nút play riêng nhảy tới timestamp.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-security">
+                    <div className="ug-change-icon"><IconCompliance size={16}/></div>
+                    <div className="ug-change-cat">Bảo mật · Foundation</div>
+                    <h5>Hệ thống phân quyền (RBAC)</h5>
+                    <p>2 roles (Admin/Staff) + 8 capabilities chi tiết. Admin cấp quyền từng phần (dashboard, skills, coach, manage users) cho từng staff.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-feature">
+                    <div className="ug-change-icon"><IconSettings size={16}/></div>
+                    <div className="ug-change-cat">Tính năng mới</div>
+                    <h5>Trang Cài đặt tài khoản</h5>
+                    <p>Đổi tên, SĐT, chức danh, mật khẩu, upload avatar trực tiếp lên Supabase Storage. Xem các quyền đã được cấp.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-feature">
+                    <div className="ug-change-icon"><IconCustomers size={16}/></div>
+                    <div className="ug-change-cat">Tính năng mới · Admin</div>
+                    <h5>Quản lý người dùng</h5>
+                    <p>Drawer trượt từ phải với 8 toggles + 3 preset (Cơ bản / Team Lead / Toàn bộ) để cấp quyền nhanh.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-ai">
+                    <div className="ug-change-icon"><IconSparkles size={16}/></div>
+                    <div className="ug-change-cat">AI Stack</div>
+                    <h5>Claude Sonnet 4.5 + Groq Whisper</h5>
+                    <p>Chuyển 100% sang Claude (qua OpenRouter, tối ưu cost với Haiku tier) + Groq Whisper-large-v3 cho transcribe tiếng Việt. Tăng chất lượng + giảm chi phí ~60%.</p>
+                  </div>
+
+                  <div className="ug-change ug-change-ux">
+                    <div className="ug-change-icon"><IconStar size={16}/></div>
+                    <div className="ug-change-cat">UX · Design system</div>
+                    <h5>Flat icon system</h5>
+                    <p>Toàn bộ icon chuyển sang lucide-react stroke-only. Giao diện nhất quán mọi trang, tối ưu mobile.</p>
+                  </div>
+                </div>
+              </article>
+
+            </div>
+
+            {/* Legend */}
+            <div className="ug-changelog-legend">
+              <span className="ug-legend-item"><i className="ug-dot ug-dot-security"/> Bảo mật</span>
+              <span className="ug-legend-item"><i className="ug-dot ug-dot-ai"/> AI Pipeline</span>
+              <span className="ug-legend-item"><i className="ug-dot ug-dot-reliability"/> Reliability</span>
+              <span className="ug-legend-item"><i className="ug-dot ug-dot-feature"/> Tính năng mới</span>
+              <span className="ug-legend-item"><i className="ug-dot ug-dot-ux"/> UX</span>
+            </div>
+          </Section>
+
+          {/* ── 3. ANALYZE ─────────────────────── */}
+          <Section id="analyze" isOpen={isOpen('analyze')} onToggle={() => toggle('analyze')} icon={<IconAnalyze size={20}/>} title="Phân tích cuộc gọi" subtitle="Upload file ghi âm và để AI phân tích tự động">
+            <h4>Cách phân tích</h4>
+            <Step n={1}><b>Chọn khách hàng</b> — Tại trang <Link to="/">Phân tích cuộc gọi</Link>, gõ tên/SĐT để tìm. Nếu chưa có, click <b>"Tạo mới"</b> để thêm nhanh.</Step>
+            <Step n={2}><b>Nhập thời gian ghi âm</b> — Quan trọng để timeline chính xác. Có preset "Ngay bây giờ / 1h trước / Sáng nay / Hôm qua".</Step>
+            <Step n={3}><b>Upload file</b> — Kéo thả MP3/WAV/M4A/OGG, tối đa 25MB. Có thể upload nhiều file cùng lúc (batch).</Step>
+            <Step n={4}>
+              <b>Click "Bắt đầu phân tích"</b> — Theo dõi tiến độ realtime qua các bước:
+              <ul>
+                <li><IconHeadphones size={14}/> Transcribe (Groq Whisper) — tách lời từ audio</li>
+                <li><IconMic size={14}/> Diarize (Claude) — gán nhãn AGENT/CUSTOMER cho từng đoạn</li>
+                <li><IconQuality size={14}/> Quality — chấm rubric 9 tiêu chí</li>
+                <li><IconTarget size={14}/> Opportunity — phát hiện cơ hội + giai đoạn</li>
+                <li><IconCompliance size={14}/> Compliance — kiểm tra vi phạm 4 mức</li>
+                <li><IconActivity size={14}/> Structure — phân chia phases + moments</li>
+                <li><IconMemory size={14}/> Needs — trích xuất nhu cầu y tế</li>
+              </ul>
+            </Step>
+            <Step n={5}><b>Xem kết quả</b> — Canvas 6 tab tự động hiển thị, KH được lưu vào DB cho lần gọi sau.</Step>
+
+            <Tip>Pipeline chạy <b>5 skills song song</b> — tổng thời gian ~30-60s cho cuộc gọi 5 phút.</Tip>
+          </Section>
+
+          {/* ── 4. AUDIO PLAYBACK ─────────────────────── */}
+          <Section id="audio" isOpen={isOpen('audio')} onToggle={() => toggle('audio')} icon={<IconHeadphones size={20}/>} title="Nghe lại audio + đồng bộ transcript" subtitle="Tính năng mới: phát audio sync với phiên âm">
+            <h4>Audio player bar (trên cùng tab Phiên âm)</h4>
             <ul>
-              <li>"KH này đang bị bệnh gì?"</li>
-              <li>"Đã mua sản phẩm nào?"</li>
-              <li>"Phong cách quyết định mua?"</li>
-              <li>"Hành động follow-up tiếp theo?"</li>
+              <li><b>Play/Pause</b> — Nút tròn gradient indigo ở giữa</li>
+              <li><b>Skip ±10s</b> — Tua tới/lùi 10 giây</li>
+              <li><b>Progress bar</b> — Click vào bất kỳ vị trí để nhảy tới đó</li>
+              <li><b>Speed control</b> — Cycle: 0.75x → 1x → 1.25x → 1.5x → 2x</li>
+              <li><b>Mute</b> — Tắt/bật tiếng nhanh</li>
             </ul>
-          </div>
-          <div className="ug-amode" style={{borderColor:'#f59e0b'}}>
-            <div className="ug-amode-head"><IconLightbulb size={16}/> <b>Cố vấn nghiệp vụ</b></div>
-            <p>Ở mọi trang khác, Agent hoạt động như <b>cố vấn bán hàng dược phẩm</b>. Hỏi:</p>
+
+            <h4>Per-segment play button</h4>
+            <p>Mỗi đoạn transcript có <b>nút play nhỏ</b> bên phải. Click → nhảy audio tới timestamp + tự động phát. Đoạn đang phát highlight indigo + auto-scroll vào view.</p>
+
+            <h4>Audio storage</h4>
+            <p>File audio được upload lên Supabase Storage bucket <code>call-audio</code> (public, 50MB/file) sau khi phân tích xong. Lần sau xem chi tiết là có thể nghe lại ngay.</p>
+
+            <Warning>Cuộc gọi cũ (trước khi bật tính năng) chưa có <code>audio_url</code> nên sẽ hiện "File audio không còn". Chỉ cuộc gọi mới mới có nút phát.</Warning>
+          </Section>
+
+          {/* ── 5. RESULTS ─────────────────────── */}
+          <Section id="results" isOpen={isOpen('results')} onToggle={() => toggle('results')} icon={<IconStar size={20}/>} title="Xem kết quả phân tích" subtitle="6 tab kết quả + cách hiểu các chỉ số">
+            <div className="ug-result-tabs">
+              <div className="ug-rtab"><b><H icon={<IconQuality size={14}/>}>Tổng quan</H></b><p>Tóm tắt cuộc gọi, KPI tổng, summary AI. Click chip "Khoảnh khắc" để nhảy tới timestamp.</p></div>
+              <div className="ug-rtab"><b><H icon={<IconMic size={14}/>}>Phiên âm</H></b><p>Bản gỡ băng + audio player + per-segment play. Agent (xanh) vs KH (trắng).</p></div>
+              <div className="ug-rtab"><b><H icon={<IconTrendUp size={14}/>}>Chất lượng</H></b><p>9 tiêu chí với điểm/max + reasoning + evidence (timestamp + quote nguyên văn).</p></div>
+              <div className="ug-rtab"><b><H icon={<IconTarget size={14}/>}>Cơ hội</H></b><p>Score 0-100, stage (cold/warm/hot/ready_to_buy), buying signals, objections, NBA.</p></div>
+              <div className="ug-rtab"><b><H icon={<IconCompliance size={14}/>}>Tuân thủ</H></b><p>Severity 4 mức (clean/yellow/orange/red), evidence quote, recommended_action.</p></div>
+              <div className="ug-rtab"><b><H icon={<IconMemory size={14}/>}>Nhu cầu</H></b><p>Medical conditions, medications, allergies, lifestyle, budget signals, decision style.</p></div>
+            </div>
+
+            <h4>Hiểu điểm Quality (A-F)</h4>
+            <div className="ug-grade-legend">
+              <span className="ug-grade" style={{background:'#16a34a'}}>A (90-100)</span>
+              <span className="ug-grade" style={{background:'#65a30d'}}>B (75-89)</span>
+              <span className="ug-grade" style={{background:'#eab308'}}>C (60-74)</span>
+              <span className="ug-grade" style={{background:'#f97316'}}>D (40-59)</span>
+              <span className="ug-grade" style={{background:'#dc2626'}}>F (0-39)</span>
+            </div>
+
+            <h4>9 tiêu chí Quality</h4>
             <ul>
-              <li>"Cách mở đầu cuộc gọi hiệu quả?"</li>
-              <li>"Xử lý khi KH chê giá đắt?"</li>
-              <li>"Quy định quảng cáo dược phẩm VN?"</li>
-              <li>"KPI nào quan trọng nhất?"</li>
+              <li><b>Identity Verification</b> (5đ) — xác nhận tên + SĐT + giới thiệu</li>
+              <li><b>Medical Discovery</b> (15đ) — hỏi triệu chứng, thuốc, dị ứng, thai kỳ</li>
+              <li><b>Indication Appropriateness</b> (20đ) — SP có match triệu chứng?</li>
+              <li><b>Side Effects Disclosure</b> (15đ) — chủ động nhắc TDP?</li>
+              <li><b>Dosage Clarity</b> (10đ) — liều + tần suất + thời điểm + duration</li>
+              <li><b>Drug Interaction Check</b> (10đ) — hỏi thuốc đang dùng?</li>
+              <li><b>Empathy & Listening</b> (10đ) — dùng tên KH, reflective listening</li>
+              <li><b>Professional Close</b> (10đ) — xác nhận đơn + next step + follow-up</li>
+              <li><b>Compliance Language</b> (5đ) — không hứa "chữa khỏi 100%"</li>
             </ul>
+          </Section>
+
+          {/* ── 6. HISTORY ─────────────────────── */}
+          <Section id="history" isOpen={isOpen('history')} onToggle={() => toggle('history')} icon={<IconHistory size={20}/>} title="Lịch sử phân tích" subtitle="Tra cứu, lọc, tìm kiếm cuộc gọi đã phân tích">
+            <h4>Bộ lọc</h4>
+            <ul>
+              <li><b>Thời gian:</b> Hôm nay / 7 ngày / 30 ngày / Quý / Năm / Tất cả</li>
+              <li><b>Khách hàng:</b> Autocomplete tên/SĐT</li>
+              <li><b>Compliance:</b> Tất cả / Sạch / Vàng / Cam / Đỏ</li>
+              <li><b>Tìm trong transcript:</b> Full-text search</li>
+            </ul>
+
+            <h4>Bảng kết quả</h4>
+            <p>Mỗi dòng: thời gian · KH · tóm tắt · Q (quality grade) · Opp (opportunity score) · Compl (compliance) · thời lượng. Click vào dòng → mở Chi tiết cuộc gọi.</p>
+
+            <Tip>Quyền <code>view_all_calls</code> mới cho phép Staff xem cuộc gọi của mọi rep — mặc định Staff chỉ xem cuộc của mình.</Tip>
+          </Section>
+
+          {/* ── 7. CUSTOMERS ─────────────────────── */}
+          <Section id="customers" isOpen={isOpen('customers')} onToggle={() => toggle('customers')} icon={<IconCustomers size={20}/>} title="Quản lý khách hàng" subtitle="CRM tích hợp trí nhớ AI">
+            <h4>Danh sách KH</h4>
+            <p>Hiển thị: tên, SĐT, nguồn, số cuộc gọi, quality avg, compliance status, ngày tương tác gần nhất.</p>
+
+            <h4>Chi tiết KH bao gồm</h4>
+            <ul>
+              <li><b>Trí nhớ AI</b> — Auto-generated từ mọi cuộc gọi:
+                <ul>
+                  <li>Bệnh lý + thời gian + mức độ</li>
+                  <li>Thuốc đang dùng + hiệu quả</li>
+                  <li>Dị ứng</li>
+                  <li>Lối sống, sở thích</li>
+                  <li>Phong cách quyết định mua</li>
+                </ul>
+              </li>
+              <li><b>Lịch sử cuộc gọi</b> — tất cả cuộc đã phân tích</li>
+              <li><b>Pipeline cơ hội</b> — sản phẩm quan tâm + giai đoạn</li>
+              <li><b>Notes & follow-up</b></li>
+            </ul>
+
+            <h4>Conflict resolution</h4>
+            <p>Khi cuộc gọi mới phát hiện fact mâu thuẫn (vd: KH đổi thuốc), Memory Agent tự động đánh dấu fact cũ là <code>valid_to=now()</code> và insert fact mới với <code>source_call_id</code>. Lịch sử được giữ nguyên.</p>
+          </Section>
+
+          {/* ── 8. AGENT AI ─────────────────────── */}
+          <Section id="agent" isOpen={isOpen('agent')} onToggle={() => toggle('agent')} icon={<IconSparkles size={20}/>} title="Agent AI — Trợ lý 3 chế độ" subtitle="Hỏi đáp thông minh dựa trên dữ liệu thực tế">
+            <h4>Mở Agent</h4>
+            <p>Click <b>FAB sparkles</b> ở giữa thanh nav (mobile) hoặc nút <b>"Agent AI"</b> ở sidebar (desktop). Sheet slide-up từ dưới hoặc panel góc phải.</p>
+
+            <h4>3 chế độ tự động phát hiện theo route</h4>
+            <div className="ug-agent-modes">
+              <div className="ug-amode" style={{borderColor:'#16a34a'}}>
+                <div className="ug-amode-head"><IconMic size={16}/> <b>Phân tích cuộc gọi</b> · /call/:id</div>
+                <p>Agent scope vào cuộc gọi đang xem. System prompt được augment với toàn bộ insights + transcript + memory KH.</p>
+                <ul>
+                  <li>"Tóm tắt cuộc gọi này"</li>
+                  <li>"Điểm yếu nhất của nhân viên?"</li>
+                  <li>"Có vi phạm tuân thủ nào?"</li>
+                  <li>"Hành động tiếp theo nên làm gì?"</li>
+                </ul>
+              </div>
+              <div className="ug-amode" style={{borderColor:'#4f46e5'}}>
+                <div className="ug-amode-head"><IconCustomers size={16}/> <b>Hỏi đáp khách hàng</b> · /customers/:id</div>
+                <p>Scope vào KH với active memory facts + last 3 calls + Top-K relevant chunks (RAG cosine similarity).</p>
+                <ul>
+                  <li>"KH này đang bị bệnh gì?"</li>
+                  <li>"Đã mua sản phẩm nào?"</li>
+                  <li>"Phong cách quyết định mua?"</li>
+                  <li>"Hành động follow-up tiếp theo?"</li>
+                </ul>
+              </div>
+              <div className="ug-amode" style={{borderColor:'#f59e0b'}}>
+                <div className="ug-amode-head"><IconLightbulb size={16}/> <b>Cố vấn nghiệp vụ</b> · trang khác</div>
+                <p>Cố vấn telesale dược phẩm chung — không cần ngữ cảnh KH cụ thể.</p>
+                <ul>
+                  <li>"Cách mở đầu cuộc gọi hiệu quả?"</li>
+                  <li>"Xử lý khi KH chê giá đắt?"</li>
+                  <li>"Quy định quảng cáo dược phẩm VN?"</li>
+                  <li>"KPI nào quan trọng nhất?"</li>
+                </ul>
+              </div>
+            </div>
+
+            <h4>Citations clickable</h4>
+            <p>Mọi response trong mode call/customer đều có citations với timestamp. Click → nhảy tới đúng đoạn trong transcript.</p>
+
+            <Tip>Quick prompts hiển thị 5 câu hỏi gợi ý cho từng mode — tap nhanh thay vì gõ.</Tip>
+          </Section>
+
+          {/* ── 9. RBAC (NEW) ─────────────────────── */}
+          <Section id="rbac" isOpen={isOpen('rbac')} onToggle={() => toggle('rbac')} icon={<IconCompliance size={20}/>} title="Phân quyền & Vai trò" subtitle="Hệ thống RBAC mới với 2 roles + 8 capabilities">
+            <h4>2 Roles cơ bản</h4>
+            <div className="ug-role-grid">
+              <div className="ug-role-card ug-role-admin-card">
+                <Badge tone="amber">Admin</Badge>
+                <p><b>Toàn quyền</b> truy cập mọi tính năng. Quản lý người dùng, cấp quyền cho staff. Tự động khi đăng ký user đầu tiên.</p>
+              </div>
+              <div className="ug-role-card ug-role-staff-card">
+                <Badge tone="indigo">Staff</Badge>
+                <p>Mặc định chỉ truy cập module cá nhân (Phân tích, Hôm nay, Lịch sử KH của mình, Notes, Agent). Admin có thể cấp thêm 8 capability.</p>
+              </div>
+            </div>
+
+            <h4>8 Capabilities chi tiết</h4>
+            <table className="ug-table">
+              <thead><tr><th>Capability</th><th>Cho phép</th></tr></thead>
+              <tbody>
+                <tr><td><code>view_dashboard</code></td><td>Xem Bảng điều khiển manager (KPI tổng đội)</td></tr>
+                <tr><td><code>view_compliance_queue</code></td><td>Xem & xử lý Hàng đợi tuân thủ</td></tr>
+                <tr><td><code>view_skills</code></td><td>Truy cập 4 trang Skills AI</td></tr>
+                <tr><td><code>coach_team</code></td><td>Tools Huấn luyện viên cho đội</td></tr>
+                <tr><td><code>view_all_calls</code></td><td>Xem cuộc gọi của mọi rep (mặc định chỉ xem của mình)</td></tr>
+                <tr><td><code>delete_calls</code></td><td>Xóa cuộc gọi (không phục hồi)</td></tr>
+                <tr><td><code>export_data</code></td><td>Download CSV/Excel reports</td></tr>
+                <tr><td><code>manage_users</code></td><td>Mời / đổi role / cấp quyền cho user khác</td></tr>
+              </tbody>
+            </table>
+
+            <h4>Cách hoạt động</h4>
+            <p>3 layer enforcement:</p>
+            <ol>
+              <li><b>Routes</b> — Truy cập trực tiếp URL bị chặn nếu không có quyền</li>
+              <li><b>Sidebar nav</b> — Menu items tự động ẩn nếu user không có quyền</li>
+              <li><b>Backend API</b> — Mọi endpoint admin đều check role qua JWT</li>
+            </ol>
+          </Section>
+
+          {/* ── 10. SETTINGS (NEW) ─────────────────────── */}
+          <Section id="settings" isOpen={isOpen('settings')} onToggle={() => toggle('settings')} icon={<IconSettings size={20}/>} title="Cài đặt tài khoản" subtitle="Trang /settings — đổi info, mật khẩu, avatar">
+            <h4>3 Tabs</h4>
+
+            <h5>1. Hồ sơ</h5>
+            <ul>
+              <li><b>Avatar upload</b> — Chọn file ảnh JPG/PNG/WebP/GIF ≤ 5MB. Tự động upload lên Supabase Storage bucket <code>avatars</code>, lưu path <code>user-{'{id}'}/{'{timestamp}'}.ext</code></li>
+              <li><b>Họ tên</b>, số điện thoại, chức danh</li>
+              <li><b>Email</b> read-only (đổi qua Supabase Auth)</li>
+              <li><b>Role pill</b> + ngày tham gia (read-only)</li>
+            </ul>
+
+            <h5>2. Bảo mật</h5>
+            <ul>
+              <li>Đổi mật khẩu (verify mật khẩu cũ trước, sau đó update qua Supabase Auth)</li>
+              <li>Real-time validation: ≥ 6 ký tự + xác nhận khớp</li>
+            </ul>
+
+            <h5>3. Quyền truy cập</h5>
+            <ul>
+              <li><b>Admin</b> thấy banner: "Bạn là Admin · Toàn quyền"</li>
+              <li><b>Staff</b> thấy danh sách 8 capability với badge "Có quyền" / "Chưa có"</li>
+            </ul>
+
+            <Tip>Click vào <b>user card</b> ở góc dưới sidebar để mở /settings nhanh.</Tip>
+          </Section>
+
+          {/* ── 11. USER MGMT (NEW) ─────────────────────── */}
+          <Section id="usermgmt" isOpen={isOpen('usermgmt')} onToggle={() => toggle('usermgmt')} icon={<IconCustomers size={20}/>} title="Quản lý người dùng (Admin only)" subtitle="Trang /admin/users — cấp quyền chi tiết cho staff">
+            <h4>Tổng quan</h4>
+            <p>3 stat cards: <b>Tổng số</b> · <b>Admin</b> · <b>Staff</b>. List user với avatar, role, "X/8 quyền", title.</p>
+
+            <h4>Đổi role nhanh</h4>
+            <p>Dropdown inline trên mỗi row — Admin ↔ Staff. Disable cho chính mình (không tự hạ role).</p>
+
+            <h4>Permission Drawer</h4>
+            <p>Click button <b>"Quyền"</b> trên staff → drawer trượt từ phải:</p>
+            <ul>
+              <li><b>3 nhóm quyền</b> với toggle iOS-style</li>
+              <li><b>3 preset shortcut:</b>
+                <ul>
+                  <li><b>Cơ bản</b> — Tắt hết (staff thuần phân tích)</li>
+                  <li><b>Team Lead</b> — Bật view_all_calls, view_dashboard, view_compliance_queue, view_skills, coach_team, export_data</li>
+                  <li><b>Toàn bộ</b> — Bật hết 8 quyền (như admin nhưng vẫn role staff)</li>
+                </ul>
+              </li>
+              <li>Click "Lưu thay đổi" — staff đó refresh trang là thấy menu cập nhật</li>
+            </ul>
+
+            <Warning>Admin không thể xóa chính mình. Nếu chỉ có 1 admin và đổi role → user đầu tiên đăng ký tiếp theo sẽ thành admin auto.</Warning>
+          </Section>
+
+          {/* ── 12. SKILLS ─────────────────────── */}
+          <Section id="skills" isOpen={isOpen('skills')} onToggle={() => toggle('skills')} icon={<IconQuality size={20}/>} title="Kỹ năng AI" subtitle="4 trang thống kê chi tiết — cần quyền view_skills">
+            <div className="ug-skills-list">
+              <div className="ug-skill-item">
+                <div className="ug-skill-head"><IconQuality size={18}/> <b>Chấm điểm tư vấn</b></div>
+                <p>Phân bố điểm (A/B/C/D/F), xu hướng cải thiện, top rubric cần cải thiện.</p>
+                <Link to="/skills/quality" className="ug-skill-link">Xem chi tiết <IconArrowRight size={14}/></Link>
+              </div>
+              <div className="ug-skill-item">
+                <div className="ug-skill-head"><IconOpportunity size={18}/> <b>Phát hiện cơ hội</b></div>
+                <p>Pipeline (cold→warm→hot→ready_to_buy), tỷ lệ chuyển đổi, top SP quan tâm, win rate.</p>
+                <Link to="/skills/opportunity" className="ug-skill-link">Xem chi tiết <IconArrowRight size={14}/></Link>
+              </div>
+              <div className="ug-skill-item">
+                <div className="ug-skill-head"><IconCompliance size={18}/> <b>Kiểm tra tuân thủ</b></div>
+                <p>Tỷ lệ vi phạm theo severity, loại vi phạm phổ biến, xu hướng cải thiện theo tuần/tháng.</p>
+                <Link to="/skills/compliance" className="ug-skill-link">Xem chi tiết <IconArrowRight size={14}/></Link>
+              </div>
+              <div className="ug-skill-item">
+                <div className="ug-skill-head"><IconMemory size={18}/> <b>Trí nhớ AI</b></div>
+                <p>Số KH có profile, tổng facts, top fact category, conflicts đã resolve.</p>
+                <Link to="/skills/memory" className="ug-skill-link">Xem chi tiết <IconArrowRight size={14}/></Link>
+              </div>
+            </div>
+          </Section>
+
+          {/* ── 13. MANAGEMENT ─────────────────────── */}
+          <Section id="management" isOpen={isOpen('management')} onToggle={() => toggle('management')} icon={<IconDashboard size={20}/>} title="Quản lý & Coaching" subtitle="Dành cho Team Lead / Manager">
+            <h4>Bảng điều khiển</h4>
+            <p>Quyền: <code>view_dashboard</code>. Trang <Link to="/dashboard-v2">/dashboard-v2</Link>:</p>
+            <ul>
+              <li>Tổng cuộc gọi (theo ngày/tuần/tháng/quý)</li>
+              <li>Quality average đội ngũ</li>
+              <li>Tỷ lệ cơ hội phát hiện</li>
+              <li>Tỷ lệ vi phạm tuân thủ</li>
+              <li>Top performers</li>
+            </ul>
+
+            <h4>Huấn luyện viên</h4>
+            <p>Quyền: <code>coach_team</code>. Trang <Link to="/coach">/coach</Link>:</p>
+            <ul>
+              <li>Điểm mạnh/yếu của từng agent (auto-aggregated)</li>
+              <li>AI đề xuất coaching plan cá nhân</li>
+              <li>Compare hiệu suất trước/sau coaching</li>
+            </ul>
+
+            <h4>Hàng đợi tuân thủ</h4>
+            <p>Quyền: <code>view_compliance_queue</code>. Trang <Link to="/compliance-queue">/compliance-queue</Link>:</p>
+            <ul>
+              <li>Sắp xếp theo severity: Đỏ → Cam → Vàng</li>
+              <li>Click → xem evidence + nghe lại + đánh dấu xử lý</li>
+              <li>Audit trail đầy đủ</li>
+            </ul>
+          </Section>
+
+          {/* ── 14. NOTES ─────────────────────── */}
+          <Section id="notes" isOpen={isOpen('notes')} onToggle={() => toggle('notes')} icon={<IconDraft size={20}/>} title="Ghi chú" subtitle="Quản lý task, follow-up, ghi nhớ">
+            <Step n={1}>Vào <Link to="/my/drafts">Ghi chú</Link> → click <b>"+ Tạo ghi chú"</b></Step>
+            <Step n={2}>Type: <b>Task / Follow-up / Note</b></Step>
+            <Step n={3}>Priority: <b>Low / Medium / High / Urgent</b></Step>
+            <Step n={4}>Gán cho khách hàng + đặt due date</Step>
+
+            <h4>Trạng thái</h4>
+            <ul>
+              <li><b>Open</b> — Chưa xử lý</li>
+              <li><b>In Progress</b> — Đang xử lý</li>
+              <li><b>Done</b> — Đã hoàn thành</li>
+            </ul>
+
+            <Tip>Toggle nhanh checkbox để Open ↔ Done không cần mở note.</Tip>
+          </Section>
+
+          {/* ── 15. TECH STACK ─────────────────────── */}
+          <Section id="tech-stack" isOpen={isOpen('tech-stack')} onToggle={() => toggle('tech-stack')} icon={<IconDatabase size={20}/>} title="Công nghệ AI bên trong" subtitle="Stack hybrid tối ưu chất lượng + chi phí">
+            <h4>Pipeline phân tích</h4>
+            <table className="ug-table">
+              <thead><tr><th>Bước</th><th>Service</th><th>Model</th></tr></thead>
+              <tbody>
+                <tr><td>1. Transcribe audio</td><td>Groq</td><td>Whisper-large-v3</td></tr>
+                <tr><td>2. Speaker label</td><td>OpenRouter → Claude</td><td>Haiku 4.5 (fast)</td></tr>
+                <tr><td>3. Quality assess</td><td>OpenRouter → Claude</td><td>Sonnet 4.5 (premium)</td></tr>
+                <tr><td>4. Compliance check</td><td>OpenRouter → Claude</td><td>Sonnet 4.5 (premium)</td></tr>
+                <tr><td>5. Opportunity scout</td><td>OpenRouter → Claude</td><td>Sonnet 4.5 (premium)</td></tr>
+                <tr><td>6. Needs extract</td><td>OpenRouter → Claude</td><td>Haiku 4.5 (fast)</td></tr>
+                <tr><td>7. Structure analyze</td><td>OpenRouter → Claude</td><td>Haiku 4.5 (fast)</td></tr>
+                <tr><td>8. Memory facts</td><td>OpenRouter → Claude</td><td>Haiku 4.5 (fast)</td></tr>
+                <tr><td>9. RAG embeddings</td><td>Gemini</td><td>embedding-001 (768-dim)</td></tr>
+              </tbody>
+            </table>
+
+            <h4>Chiến lược tối ưu chi phí</h4>
+            <ul>
+              <li><b>2-tier model</b> — Haiku ($1/$5 per MTok) cho extraction, Sonnet ($3/$15 per MTok) cho reasoning</li>
+              <li><b>Prompt caching</b> — System prompt cached 5 phút, giảm 90% input cost trên repeat calls</li>
+              <li><b>Schema-enforced output</b> — Tool_use forcing 100% đúng JSON, không retry</li>
+              <li><b>Parallel skills</b> — 5 skills chạy song song</li>
+            </ul>
+
+            <Tip>Cost trung bình ~$0.07 / cuộc gọi 5 phút (giảm 60% so với phiên bản trước).</Tip>
+          </Section>
+
+          {/* ── 16. MOBILE ─────────────────────── */}
+          <Section id="mobile" isOpen={isOpen('mobile')} onToggle={() => toggle('mobile')} icon={<IconActivity size={20}/>} title="Sử dụng trên Mobile" subtitle="Thiết kế messaging-app, tối ưu một tay">
+            <h4>Bottom navigation</h4>
+            <div className="ug-mobile-nav-demo">
+              <div className="ug-mnav-item"><IconAnalyze size={18}/><small>Phân tích</small></div>
+              <div className="ug-mnav-item"><IconHome size={18}/><small>Hôm nay</small></div>
+              <div className="ug-mnav-fab"><IconSparkles size={20}/></div>
+              <div className="ug-mnav-item"><IconHistory size={18}/><small>Lịch sử</small></div>
+              <div className="ug-mnav-item"><IconCustomers size={18}/><small>Khách hàng</small></div>
+            </div>
+
+            <h4>AgentSheet swipe-up</h4>
+            <p>Click FAB sparkles ở giữa → sheet slide-up chiếm 85% màn hình. Kéo handle xuống để dismiss.</p>
+
+            <Tip>Sidebar trên mobile bị ẩn — truy cập các trang Skills/Dashboard qua URL trực tiếp hoặc desktop.</Tip>
+          </Section>
+
+          {/* ── 17. FAQ ─────────────────────── */}
+          <Section id="faq" isOpen={isOpen('faq')} onToggle={() => toggle('faq')} icon={<IconChat size={20}/>} title="Câu hỏi thường gặp" subtitle="FAQ — Giải đáp thắc mắc phổ biến">
+            <div className="ug-faq">
+              <div className="ug-faq-item">
+                <b>Q: File ghi âm hỗ trợ định dạng nào?</b>
+                <p>A: MP3, WAV, M4A, OGG, WebM, FLAC, Opus. Tối đa 25MB. Khuyến khích MP3 để upload nhanh.</p>
+              </div>
+              <div className="ug-faq-item">
+                <b>Q: Phân tích mất bao lâu?</b>
+                <p>A: 30-90s tùy độ dài. Cuộc gọi 5 phút thường xong trong 1 phút (Whisper transcribe ~15s + 5 skills song song ~30s).</p>
+              </div>
+              <div className="ug-faq-item">
+                <b>Q: AI hiểu tiếng Việt tốt không?</b>
+                <p>A: Rất tốt. Whisper-large-v3 (Groq) đạt 95%+ accuracy cho tiếng Việt, kể cả giọng địa phương. Claude Sonnet 4.5 hiểu thuật ngữ y tế Việt Nam.</p>
+              </div>
+              <div className="ug-faq-item">
+                <b>Q: Tôi là Staff nhưng cần xem Bảng điều khiển?</b>
+                <p>A: Liên hệ Admin để cấp quyền <code>view_dashboard</code>. Admin vào /admin/users → click "Quyền" trên tài khoản của bạn → bật toggle.</p>
+              </div>
+              <div className="ug-faq-item">
+                <b>Q: Đổi mật khẩu thế nào?</b>
+                <p>A: Click avatar góc dưới sidebar → /settings → tab "Bảo mật" → nhập mật khẩu cũ + mới.</p>
+              </div>
+              <div className="ug-faq-item">
+                <b>Q: Avatar có upload được không?</b>
+                <p>A: Có, từ v2.2. Vào /settings → tab "Hồ sơ" → "Chọn ảnh". JPG/PNG/WebP/GIF ≤ 5MB, lưu tự động lên Supabase Storage.</p>
+              </div>
+              <div className="ug-faq-item">
+                <b>Q: Trí nhớ KH hoạt động ra sao?</b>
+                <p>A: Sau mỗi cuộc gọi, Memory Agent (Claude) tự trích facts (bệnh, thuốc, dị ứng, sở thích) → upsert vào <code>customer_memory</code>. Nếu phát hiện conflict (vd: đổi thuốc), fact cũ được đánh dấu <code>valid_to=now()</code> và fact mới được insert.</p>
+              </div>
+              <div className="ug-faq-item">
+                <b>Q: Compliance kiểm tra những gì?</b>
+                <p>A: 4 mức (clean/yellow/orange/red) các vi phạm: cam kết chữa khỏi, off-label, thiếu khuyến cáo bác sĩ, gây áp lực mua, hứa hoàn tiền không có cơ sở, so sánh xấu đối thủ, v.v.</p>
+              </div>
+              <div className="ug-faq-item">
+                <b>Q: Nghe lại audio cuộc gọi cũ được không?</b>
+                <p>A: Chỉ cuộc gọi phân tích sau khi bật tính năng audio storage (v2.2). Cuộc gọi trước đó chỉ có transcript + insights, không còn file audio.</p>
+              </div>
+              <div className="ug-faq-item">
+                <b>Q: Agent AI có nhớ lịch sử chat?</b>
+                <p>A: Trong cùng phiên chat thì có. Đóng và mở lại sheet sẽ reset history.</p>
+              </div>
+            </div>
+          </Section>
+
+          {/* Footer */}
+          <div className="ug-footer">
+            <p>PharmaVoice v2.3 · Powered by Claude Sonnet 4.5 · Groq Whisper · Supabase</p>
+            <small>Có thắc mắc? Mở <b>Agent AI</b> (FAB sparkles) để hỏi bất cứ điều gì.</small>
           </div>
         </div>
-
-        <Tip>Agent tự động phát hiện context dựa trên trang bạn đang xem — không cần cấu hình gì!</Tip>
-        <Tip>Kéo thanh handle xuống dưới hoặc nhấn nút X để đóng Agent sheet.</Tip>
-      </Section>
-
-      <Section id="skills" icon={<IconQuality size={20}/>} title="Kỹ năng AI" subtitle="Xem thống kê chi tiết từng kỹ năng AI">
-        <div className="ug-skills-list">
-          <div className="ug-skill-item">
-            <div className="ug-skill-head"><IconQuality size={18}/> <b>Chấm điểm tư vấn</b></div>
-            <p>Xem phân bố điểm quality (A/B/C/D/F), xu hướng cải thiện theo thời gian, top rubric cần cải thiện.</p>
-            <Link to="/skills/quality" className="ug-skill-link">Xem chi tiết <IconArrowRight size={14}/></Link>
-          </div>
-          <div className="ug-skill-item">
-            <div className="ug-skill-head"><IconOpportunity size={18}/> <b>Phát hiện cơ hội</b></div>
-            <p>Xem pipeline cơ hội (cold → warm → hot → ready_to_buy), tỷ lệ chuyển đổi, top sản phẩm quan tâm.</p>
-            <Link to="/skills/opportunity" className="ug-skill-link">Xem chi tiết <IconArrowRight size={14}/></Link>
-          </div>
-          <div className="ug-skill-item">
-            <div className="ug-skill-head"><IconCompliance size={18}/> <b>Kiểm tra tuân thủ</b></div>
-            <p>Xem tỷ lệ vi phạm, loại vi phạm phổ biến, xu hướng cải thiện. Đặc biệt quan trọng cho ngành dược.</p>
-            <Link to="/skills/compliance" className="ug-skill-link">Xem chi tiết <IconArrowRight size={14}/></Link>
-          </div>
-          <div className="ug-skill-item">
-            <div className="ug-skill-head"><IconMemory size={18}/> <b>Trí nhớ AI</b></div>
-            <p>Xem tổng hợp memory: bao nhiêu KH có profile, bao nhiêu facts đã lưu, top category.</p>
-            <Link to="/skills/memory" className="ug-skill-link">Xem chi tiết <IconArrowRight size={14}/></Link>
-          </div>
-        </div>
-      </Section>
-
-      <Section id="management" icon={<IconDashboard size={20}/>} title="Quản lý & Coaching" subtitle="Dành cho Team Lead / Manager">
-        <h4>Bảng điều khiển (Manager Dashboard)</h4>
-        <p>
-          Trang <Link to="/dashboard-v2">Bảng điều khiển</Link> tổng hợp KPI của cả đội:
-        </p>
-        <ul>
-          <li>Tổng cuộc gọi đã phân tích (theo ngày/tuần/tháng/quý)</li>
-          <li>Điểm quality trung bình đội ngũ</li>
-          <li>Tỷ lệ cơ hội phát hiện</li>
-          <li>Tỷ lệ vi phạm tuân thủ</li>
-          <li>Top agent (hiệu suất cao nhất)</li>
-        </ul>
-
-        <h4>Huấn luyện viên AI (Coach)</h4>
-        <p>
-          Trang <Link to="/coach">Huấn luyện viên</Link> giúp manager:
-        </p>
-        <ul>
-          <li>Xem điểm mạnh/yếu của từng agent</li>
-          <li>AI đề xuất coaching plan cá nhân hóa</li>
-          <li>So sánh hiệu suất trước/sau coaching</li>
-        </ul>
-
-        <h4>Hàng đợi tuân thủ (Compliance Queue)</h4>
-        <p>
-          Trang <Link to="/compliance-queue">Hàng đợi tuân thủ</Link> liệt kê các cuộc gọi có vi phạm cần review:
-        </p>
-        <ul>
-          <li>Ưu tiên theo mức độ: Đỏ → Cam → Vàng</li>
-          <li>Nhấn vào để xem chi tiết vi phạm + nghe lại</li>
-          <li>Đánh dấu đã xử lý hoặc escalate</li>
-        </ul>
-      </Section>
-
-      <Section id="notes" icon={<IconDraft size={20}/>} title="Ghi chú" subtitle="Quản lý task, follow-up, và ghi nhớ">
-        <h4>Tạo ghi chú</h4>
-        <Step n={1}>Vào <Link to="/my/drafts">Ghi chú</Link> → nhấn <b>"+ Tạo ghi chú"</b></Step>
-        <Step n={2}>Nhập tiêu đề và nội dung. Chọn loại: <b>Task / Follow-up / Note</b></Step>
-        <Step n={3}>Đặt mức ưu tiên: <b>Low / Medium / High / Urgent</b></Step>
-        <Step n={4}>Gán cho khách hàng (nếu có) và đặt ngày deadline</Step>
-
-        <h4>Quản lý trạng thái</h4>
-        <ul>
-          <li><b>Open</b> — Chưa xử lý</li>
-          <li><b>In Progress</b> — Đang xử lý</li>
-          <li><b>Done</b> — Đã hoàn thành (nhấn nhanh nút toggle)</li>
-        </ul>
-
-        <Tip>Nhấn đúp vào checkbox trạng thái để toggle nhanh Open ↔ Done mà không cần mở note.</Tip>
-      </Section>
-
-      <Section id="mobile" icon={<IconActivity size={20}/>} title="Sử dụng trên Mobile" subtitle="Thiết kế tối ưu cho điện thoại">
-        <h4>Thanh navigation</h4>
-        <p>Trên mobile, thanh navigation nằm ở <b>dưới cùng màn hình</b> với 5 mục:</p>
-        <div className="ug-mobile-nav-demo">
-          <div className="ug-mnav-item"><IconAnalyze size={18}/><small>Phân tích</small></div>
-          <div className="ug-mnav-item"><IconHome size={18}/><small>Hôm nay</small></div>
-          <div className="ug-mnav-fab"><IconSparkles size={20}/></div>
-          <div className="ug-mnav-item"><IconHistory size={18}/><small>Lịch sử</small></div>
-          <div className="ug-mnav-item"><IconCustomers size={18}/><small>Khách hàng</small></div>
-        </div>
-
-        <h4>Agent trên Mobile</h4>
-        <p>
-          Nhấn nút <b>sparkles</b> ở giữa → Agent sheet slide lên chiếm 85% màn hình.
-          Kéo thanh handle xuống để đóng (swipe down gesture).
-        </p>
-
-        <h4>Các trang khác trên Mobile</h4>
-        <p>
-          Để truy cập các module khác (Skills, Dashboard, Coach, Notes...):
-          sử dụng nút hamburger menu ở góc trái hoặc truy cập trực tiếp qua URL.
-        </p>
-
-        <Tip>Giao diện mobile được thiết kế theo phong cách messaging app — tối ưu cho thao tác một tay.</Tip>
-      </Section>
-
-      <Section id="faq" icon={<IconChat size={20}/>} title="Câu hỏi thường gặp" subtitle="FAQ — Giải đáp thắc mắc phổ biến">
-        <div className="ug-faq">
-          <div className="ug-faq-item">
-            <b>Q: File ghi âm hỗ trợ định dạng nào?</b>
-            <p>A: MP3, WAV, M4A, OGG, WEBM. Kích thước tối đa 25MB. Nên dùng MP3 để tối ưu tốc độ upload.</p>
-          </div>
-          <div className="ug-faq-item">
-            <b>Q: Phân tích mất bao lâu?</b>
-            <p>A: Trung bình 1-3 phút tùy độ dài cuộc gọi. Cuộc gọi dưới 10 phút thường xong trong 1 phút.</p>
-          </div>
-          <div className="ug-faq-item">
-            <b>Q: AI có nghe được tiếng Việt không?</b>
-            <p>A: Có! Hệ thống sử dụng Gemini AI với khả năng nhận diện tiếng Việt tốt, kể cả giọng địa phương.</p>
-          </div>
-          <div className="ug-faq-item">
-            <b>Q: Trí nhớ KH hoạt động như thế nào?</b>
-            <p>A: Sau mỗi cuộc gọi, AI tự động trích xuất thông tin quan trọng (bệnh lý, thuốc, sở thích...) và lưu vào hồ sơ KH. Lần gọi tiếp theo, agent có thể tra cứu ngay.</p>
-          </div>
-          <div className="ug-faq-item">
-            <b>Q: Compliance kiểm tra những gì?</b>
-            <p>A: AI kiểm tra các quy định quảng cáo dược phẩm Việt Nam: cam kết chữa bệnh, quảng cáo sai sự thật, thiếu khuyến cáo bác sĩ, gây áp lực mua hàng, hứa hoàn tiền không hợp lệ, v.v.</p>
-          </div>
-          <div className="ug-faq-item">
-            <b>Q: Có thể xóa cuộc gọi đã phân tích không?</b>
-            <p>A: Hiện tại chưa hỗ trợ xóa trực tiếp trên giao diện. Liên hệ admin để xử lý.</p>
-          </div>
-          <div className="ug-faq-item">
-            <b>Q: Agent AI có nhớ cuộc hội thoại trước không?</b>
-            <p>A: Agent nhớ nội dung trong cùng một phiên chat. Khi đóng và mở lại, lịch sử sẽ được reset.</p>
-          </div>
-        </div>
-      </Section>
-
-      {/* Footer */}
-      <div className="ug-footer">
-        <p>PharmaVoice v2.0 — AI-powered call analytics for pharmaceutical sales</p>
-        <small>Có thắc mắc? Sử dụng <b>Agent AI</b> (nút sparkles) để hỏi bất cứ điều gì.</small>
       </div>
     </div>
   );

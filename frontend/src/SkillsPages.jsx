@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import FilterBar, { filtersToQuery } from './FilterBar';
+import {
+  IconQuality, IconOpportunity, IconCompliance, IconMemory,
+  IconChartLine, IconTarget, IconTrophy, IconWarning, IconPin, IconCheck,
+  IconMoney, IconSnow, IconEye, IconFire, IconStop, IconClose,
+  IconFunnel, IconRadio, IconDollar, IconTruck, IconCreditCard, IconPackage,
+  IconSwords, IconZap, IconHelp, IconFrown, IconClock, IconBan, IconLock,
+  IconAlertTriangle, IconHeartPulse, IconClipboard, IconHand, IconBaby,
+  IconUnlock, IconAlert, IconChartLine as IconChart, IconList,
+  IconStethoscope, IconPill, IconCompass, IconHandshake, IconCart, IconPhone2,
+  IconBike, IconCustomers, IconLayers, IconCrown, IconMicroscope
+} from './icons';
 import './SkillsPages.css';
+
+// Helper: render label with icon
+const I = (Icon, text) => <span className="sk-lbl-ico"><Icon size={14}/> {text}</span>;
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 const fmtVND = (v) => v ? new Intl.NumberFormat('vi-VN').format(v) + 'đ' : '—';
@@ -70,7 +84,7 @@ export function QualitySkill() {
   return (
     <div className="sk-root">
       <SkillHeader
-        icon="📊" iconBg="linear-gradient(135deg, #fef2f2, #fecaca)"
+        icon={<IconQuality size={26}/>} iconBg="linear-gradient(135deg, #fef2f2, #fecaca)"
         title="Chấm điểm tư vấn"
         subtitle="Pharma Rubric 9 tiêu chí · evidence-backed"
         description="Agent chấm mỗi cuộc gọi theo 9 tiêu chí chuyên ngành dược phẩm với quote + timestamp làm bằng chứng. Trang này tổng hợp pattern chất lượng toàn team."
@@ -91,7 +105,7 @@ export function QualitySkill() {
       <div className="sk-grid">
         {/* Distribution */}
         <section className="sk-card">
-          <h2>📈 Phân bố điểm</h2>
+          <h2><IconChartLine size={18}/> Phân bố điểm</h2>
           <p className="sk-card-sub">Số call theo grade</p>
           <div className="sk-dist">
             {['A','B','C','D','F'].map(g => (
@@ -107,7 +121,7 @@ export function QualitySkill() {
 
         {/* Criteria */}
         <section className="sk-card sk-card-wide">
-          <h2>🎯 Chi tiết theo tiêu chí</h2>
+          <h2><IconTarget size={18}/> Chi tiết theo tiêu chí</h2>
           <p className="sk-card-sub">Sắp xếp yếu → mạnh. Team cần training tiêu chí đầu tiên.</p>
           <div className="sk-crit">
             {data.criteria.map(c => (
@@ -124,7 +138,7 @@ export function QualitySkill() {
 
         {/* Top calls */}
         <section className="sk-card">
-          <h2>🏆 Top 3 calls chất lượng cao</h2>
+          <h2><IconTrophy size={18}/> Top 3 calls chất lượng cao</h2>
           {data.best_calls.map(c => (
             <div key={c.id} className="sk-ex" onClick={() => c.customer_id && navigate(`/customers/${c.customer_id}`)}>
               <div className="sk-ex-head">
@@ -133,7 +147,7 @@ export function QualitySkill() {
               </div>
               {c.strengths?.length > 0 && (
                 <div className="sk-ex-items">
-                  {c.strengths.map((s, i) => <div key={i}>✓ {s}</div>)}
+                  {c.strengths.map((s, i) => <div key={i}><IconCheck size={12}/> {s}</div>)}
                 </div>
               )}
             </div>
@@ -142,7 +156,7 @@ export function QualitySkill() {
 
         {/* Worst calls */}
         <section className="sk-card">
-          <h2>⚠️ 3 calls cần cải thiện</h2>
+          <h2><IconWarning size={18}/> 3 calls cần cải thiện</h2>
           {data.worst_calls.map(c => (
             <div key={c.id} className="sk-ex" onClick={() => c.customer_id && navigate(`/customers/${c.customer_id}`)}>
               <div className="sk-ex-head">
@@ -160,16 +174,16 @@ export function QualitySkill() {
 
         {/* Recurring patterns */}
         <section className="sk-card sk-card-wide">
-          <h2>📌 Pattern lặp lại</h2>
+          <h2><IconPin size={18}/> Pattern lặp lại</h2>
           <div className="sk-two-col">
             <div>
-              <h4>✅ Điểm mạnh thường xuyên</h4>
+              <h4><IconCheck size={14}/> Điểm mạnh thường xuyên</h4>
               <ul className="sk-list">
                 {data.top_strengths.map((s,i) => <li key={i}><span className="sk-freq sk-freq-ok">×{s.count}</span>{s.text}</li>)}
               </ul>
             </div>
             <div>
-              <h4>🎯 Cần cải thiện thường xuyên</h4>
+              <h4><IconTarget size={14}/> Cần cải thiện thường xuyên</h4>
               <ul className="sk-list">
                 {data.top_improvements.map((s,i) => <li key={i}><span className="sk-freq sk-freq-bad">×{s.count}</span>{s.text}</li>)}
               </ul>
@@ -192,25 +206,39 @@ export function OpportunitySkill() {
 
   const stages = ['cold','qualified','interested','hot','ready_to_buy','objection','lost'];
   const stageLabel = {
-    cold: '❄️ Cold', qualified: '✓ Qualified', interested: '👀 Interested',
-    hot: '🔥 Hot', ready_to_buy: '🎯 Ready to buy',
-    objection: '🛑 Objection', lost: '✕ Lost'
+    cold:         I(IconSnow,    'Cold'),
+    qualified:    I(IconCheck,   'Qualified'),
+    interested:   I(IconEye,     'Interested'),
+    hot:          I(IconFire,    'Hot'),
+    ready_to_buy: I(IconTarget,  'Ready to buy'),
+    objection:    I(IconStop,    'Objection'),
+    lost:         I(IconClose,   'Lost')
   };
   const signalLabel = {
-    price_inquiry: '💵 Hỏi giá', delivery_inquiry: '🚚 Hỏi giao hàng', payment_inquiry: '💳 Hỏi thanh toán',
-    quantity_inquiry: '📦 Hỏi số lượng', compare_competitor: '🥊 So sánh đối thủ',
-    commitment_language: '✅ Ngôn ngữ cam kết', urgency_language: '⚡ Ngôn ngữ gấp', other: '❓ Khác'
+    price_inquiry:      I(IconDollar,    'Hỏi giá'),
+    delivery_inquiry:   I(IconTruck,     'Hỏi giao hàng'),
+    payment_inquiry:    I(IconCreditCard,'Hỏi thanh toán'),
+    quantity_inquiry:   I(IconPackage,   'Hỏi số lượng'),
+    compare_competitor: I(IconSwords,    'So sánh đối thủ'),
+    commitment_language:I(IconCheck,     'Ngôn ngữ cam kết'),
+    urgency_language:   I(IconZap,       'Ngôn ngữ gấp'),
+    other:              I(IconHelp,      'Khác')
   };
   const objLabel = {
-    price: '💵 Giá', trust: '🤔 Tin cậy', timing: '⏰ Thời điểm', need: '❌ Không cần',
-    competitor_loyalty: '🔒 Trung thành với đối thủ', side_effect_fear: '😰 Sợ TDP', other: '❓ Khác'
+    price:               I(IconDollar, 'Giá'),
+    trust:               I(IconAlert,  'Tin cậy'),
+    timing:              I(IconClock,  'Thời điểm'),
+    need:                I(IconBan,    'Không cần'),
+    competitor_loyalty:  I(IconLock,   'Trung thành với đối thủ'),
+    side_effect_fear:    I(IconFrown,  'Sợ TDP'),
+    other:               I(IconHelp,   'Khác')
   };
   const funnelMax = data ? Math.max(1, ...stages.map(s => data.funnel?.[s]?.count || 0)) : 1;
 
   return (
     <div className="sk-root">
       <SkillHeader
-        icon="💰" iconBg="linear-gradient(135deg, #f0fdf4, #dcfce7)"
+        icon={<IconMoney size={26}/>} iconBg="linear-gradient(135deg, #f0fdf4, #dcfce7)"
         title="Opportunity Scout"
         subtitle="Sales signals · objections · pipeline value · next best action"
         description="Agent phát hiện buying signals và objections timestamped, ước giá trị đơn hàng, gợi ý hành động tiếp theo cụ thể cho rep."
@@ -231,7 +259,7 @@ export function OpportunitySkill() {
       <div className="sk-grid">
         {/* Funnel */}
         <section className="sk-card sk-card-wide">
-          <h2>🔻 Funnel theo stage</h2>
+          <h2><IconFunnel size={18}/> Funnel theo stage</h2>
           <div className="sk-funnel">
             {stages.map(s => {
               const f = data.funnel[s] || { count: 0, value: 0 };
@@ -253,7 +281,7 @@ export function OpportunitySkill() {
 
         {/* Signals */}
         <section className="sk-card">
-          <h2>📡 Buying signals phổ biến</h2>
+          <h2><IconRadio size={18}/> Buying signals phổ biến</h2>
           <p className="sk-card-sub">Từ {data.total_opportunities} opportunities</p>
           {data.top_buying_signals.length === 0 ? <p className="sk-empty">Chưa có signal</p> :
             data.top_buying_signals.map(s => (
@@ -267,7 +295,7 @@ export function OpportunitySkill() {
 
         {/* Objections */}
         <section className="sk-card">
-          <h2>🛑 Objections phổ biến</h2>
+          <h2><IconStop size={18}/> Objections phổ biến</h2>
           <p className="sk-card-sub">Rep cần training phản bác</p>
           {data.top_objections.length === 0 ? <p className="sk-empty">Chưa có objection</p> :
             data.top_objections.map(o => (
@@ -281,7 +309,7 @@ export function OpportunitySkill() {
 
         {/* Hot list */}
         <section className="sk-card sk-card-wide">
-          <h2>🔥 Hot opportunities đang theo dõi</h2>
+          <h2><IconFire size={18}/> Hot opportunities đang theo dõi</h2>
           {data.hot_opportunities.length === 0 ? <p className="sk-empty">Không có deal hot</p> :
             <div className="sk-hot-list">
               {data.hot_opportunities.map(h => (
@@ -315,17 +343,22 @@ export function ComplianceSkill() {
   const navigate = useNavigate();
 
   const typeLabel = {
-    adverse_event: '⚕️ Adverse event', off_label_claim: '📋 Off-label claim',
-    guarantee_cure: '✋ Hứa chữa khỏi', pregnancy_risk_ignored: '🤰 Bỏ qua thai kỳ',
-    drug_interaction_missed: '💊 Bỏ qua tương tác', underage_recommendation: '👶 Khuyên trẻ em',
-    competitor_disparagement: '🥊 Chê đối thủ', personal_data_leak: '🔓 Lộ dữ liệu', other: '❓ Khác'
+    adverse_event:           I(IconHeartPulse,    'Adverse event'),
+    off_label_claim:         I(IconClipboard,     'Off-label claim'),
+    guarantee_cure:          I(IconHand,          'Hứa chữa khỏi'),
+    pregnancy_risk_ignored:  I(IconBaby,          'Bỏ qua thai kỳ'),
+    drug_interaction_missed: I(IconPill,          'Bỏ qua tương tác'),
+    underage_recommendation: I(IconBaby,          'Khuyên trẻ em'),
+    competitor_disparagement:I(IconSwords,        'Chê đối thủ'),
+    personal_data_leak:      I(IconUnlock,        'Lộ dữ liệu'),
+    other:                   I(IconHelp,          'Khác')
   };
   const reviewPct = data && data.total > 0 ? Math.round(data.reviewed / data.total * 100) : 100;
 
   return (
     <div className="sk-root">
       <SkillHeader
-        icon="⚠️" iconBg="linear-gradient(135deg, #fffbeb, #fef3c7)"
+        icon={<IconCompliance size={26}/>} iconBg="linear-gradient(135deg, #fffbeb, #fef3c7)"
         title="Compliance Guardian"
         subtitle="Phát hiện adverse event · off-label · guarantee cure · pharmacovigilance"
         description="Red flag cho mọi vi phạm tuân thủ dược phẩm. Quan trọng nhất: adverse event (PHẢI report pharmacovigilance) và off-label claim (rủi ro pháp lý)."
@@ -338,20 +371,20 @@ export function ComplianceSkill() {
       {!loading && data && <>
       <div className="sk-stats">
         <StatCard label="Tổng events" value={data.total} />
-        <StatCard label="🔴 RED" value={data.red} tint="danger" />
-        <StatCard label="🟠 ORANGE" value={data.orange} tint="warn" />
+        <StatCard label="RED" value={data.red} tint="danger" />
+        <StatCard label="ORANGE" value={data.orange} tint="warn" />
         <StatCard label="Tỷ lệ đã review" value={reviewPct + '%'} tint={reviewPct >= 80 ? 'ok' : 'warn'} hint={`${data.reviewed}/${data.total}`} />
       </div>
 
       <div className="sk-grid">
         {/* By type */}
         <section className="sk-card sk-card-wide">
-          <h2>📊 Phân loại vi phạm</h2>
+          <h2><IconChartLine size={18}/> Phân loại vi phạm</h2>
           <p className="sk-card-sub">Team nào có pattern gì nhiều nhất</p>
-          {data.by_type.length === 0 ? <p className="sk-empty">Không có vi phạm 🎉</p> :
+          {data.by_type.length === 0 ? <p className="sk-empty"><IconCheck size={14}/> Không có vi phạm</p> :
             <div className="sk-type-table">
               <div className="sk-type-head">
-                <span>Loại</span><span>🔴 RED</span><span>🟠 ORANGE</span><span>🟡 YELLOW</span><span>Tổng</span>
+                <span>Loại</span><span>RED</span><span>ORANGE</span><span>YELLOW</span><span>Tổng</span>
               </div>
               {data.by_type.map(t => (
                 <div key={t.type} className="sk-type-row">
@@ -368,15 +401,15 @@ export function ComplianceSkill() {
 
         {/* By rep */}
         <section className="sk-card">
-          <h2>👥 Theo nhân viên</h2>
+          <h2><IconCustomers size={18}/> Theo nhân viên</h2>
           {data.by_rep.length === 0 ? <p className="sk-empty">Chưa có data</p> :
             data.by_rep.map(r => (
               <div key={r.rep_user_id || 'u'} className="sk-rep-row" onClick={() => r.rep_user_id && navigate(`/coach?rep=${r.rep_user_id}`)}>
                 <b>{r.user?.name || `Rep #${r.rep_user_id || '—'}`}</b>
                 <div className="sk-rep-bars">
-                  {r.red > 0 && <span className="sk-pill sk-pill-red">🔴 {r.red}</span>}
-                  {r.orange > 0 && <span className="sk-pill sk-pill-orange">🟠 {r.orange}</span>}
-                  {r.yellow > 0 && <span className="sk-pill sk-pill-yellow">🟡 {r.yellow}</span>}
+                  {r.red > 0 && <span className="sk-pill sk-pill-red">RED {r.red}</span>}
+                  {r.orange > 0 && <span className="sk-pill sk-pill-orange">ORG {r.orange}</span>}
+                  {r.yellow > 0 && <span className="sk-pill sk-pill-yellow">YEL {r.yellow}</span>}
                 </div>
               </div>
             ))
@@ -385,10 +418,10 @@ export function ComplianceSkill() {
 
         {/* Adverse events — critical */}
         <section className="sk-card sk-card-adverse">
-          <h2>⚕️ Adverse Events</h2>
+          <h2><IconHeartPulse size={18}/> Adverse Events</h2>
           <p className="sk-card-sub">PHẢI báo cáo pharmacovigilance — cao nhất priority</p>
           {data.adverse_events.length === 0 ? (
-            <p className="sk-empty-good">✅ Không có adverse event nào được phát hiện.</p>
+            <p className="sk-empty-good"><IconCheck size={14}/> Không có adverse event nào được phát hiện.</p>
           ) : (
             data.adverse_events.map(e => (
               <div key={e.id} className="sk-ae" onClick={() => e.call_id && navigate(`/compliance-queue?severity=red`)}>
@@ -405,7 +438,7 @@ export function ComplianceSkill() {
 
         {/* Recent RED */}
         <section className="sk-card">
-          <h2>🔴 RED events gần đây</h2>
+          <h2><IconAlertTriangle size={18}/> RED events gần đây</h2>
           {data.recent_red.length === 0 ? (
             <p className="sk-empty-good">Không có RED nào.</p>
           ) : (
@@ -433,16 +466,22 @@ export function MemorySkill() {
   const navigate = useNavigate();
 
   const typeLabel = {
-    condition: '🏥 Tình trạng', medication: '💊 Thuốc', allergy: '⚠️ Dị ứng',
-    preference: '🧭 Sở thích', goal: '🎯 Mục tiêu', family: '👨‍👩‍👧 Gia đình',
-    purchase: '🛒 Đã mua', contact: '📞 Liên lạc', lifestyle: '🏃 Lối sống'
+    condition:  I(IconStethoscope, 'Tình trạng'),
+    medication: I(IconPill,        'Thuốc'),
+    allergy:    I(IconAlertTriangle,'Dị ứng'),
+    preference: I(IconCompass,     'Sở thích'),
+    goal:       I(IconTarget,      'Mục tiêu'),
+    family:     I(IconHandshake,   'Gia đình'),
+    purchase:   I(IconCart,        'Đã mua'),
+    contact:    I(IconPhone2,      'Liên lạc'),
+    lifestyle:  I(IconBike,        'Lối sống')
   };
   const coverage = data && data.total_customers > 0 ? Math.round(data.customers_with_memory / data.total_customers * 100) : 0;
 
   return (
     <div className="sk-root">
       <SkillHeader
-        icon="🧠" iconBg="linear-gradient(135deg, #eff6ff, #dbeafe)"
+        icon={<IconMemory size={26}/>} iconBg="linear-gradient(135deg, #eff6ff, #dbeafe)"
         title="Memory Agent"
         subtitle="Fact store versioned · pgvector RAG · conflict detection"
         description="Agent tự động trích xuất facts từ mỗi cuộc gọi, lưu vào customer_memory với versioning. Khi KH đổi ý (vd: từ 'không dị ứng' → 'dị ứng penicillin'), memory cũ bị supersede và lưu cả 2 version."
@@ -463,7 +502,7 @@ export function MemorySkill() {
       <div className="sk-grid">
         {/* By type */}
         <section className="sk-card sk-card-wide">
-          <h2>📂 Phân loại facts</h2>
+          <h2><IconLayers size={18}/> Phân loại facts</h2>
           <p className="sk-card-sub">Agent lưu facts ben vững theo {data.by_type.length} loại</p>
           {data.by_type.length === 0 ? <p className="sk-empty">Chưa có fact</p> :
             <div className="sk-mem-types">
@@ -479,7 +518,7 @@ export function MemorySkill() {
 
         {/* Top customers */}
         <section className="sk-card">
-          <h2>🏆 KH có memory dày đặc nhất</h2>
+          <h2><IconCrown size={18}/> KH có memory dày đặc nhất</h2>
           <p className="sk-card-sub">Agent đã học nhiều về họ</p>
           {data.top_customers.length === 0 ? <p className="sk-empty">Chưa có data</p> :
             data.top_customers.map(r => (
@@ -496,10 +535,10 @@ export function MemorySkill() {
 
         {/* Conflicts */}
         <section className="sk-card sk-card-wide">
-          <h2>⚡ Conflict detection (gần đây)</h2>
+          <h2><IconZap size={18}/> Conflict detection (gần đây)</h2>
           <p className="sk-card-sub">KH đổi ý → Agent lưu version mới, mark version cũ superseded</p>
           {data.recent_conflicts.length === 0 ? (
-            <p className="sk-empty-good">✅ Chưa có conflict nào. Memory ổn định.</p>
+            <p className="sk-empty-good"><IconCheck size={14}/> Chưa có conflict nào. Memory ổn định.</p>
           ) : (
             data.recent_conflicts.map(c => (
               <div key={c.id} className="sk-conflict">
@@ -519,7 +558,7 @@ export function MemorySkill() {
 
         {/* How it works */}
         <section className="sk-card">
-          <h2>🔬 Cơ chế</h2>
+          <h2><IconMicroscope size={18}/> Cơ chế</h2>
           <ol className="sk-steps">
             <li><b>Extract</b>: Gemini đọc transcript, trích fact bền vững (KHÔNG phải event nhất thời)</li>
             <li><b>Upsert</b>: Match với active facts cùng fact_key</li>

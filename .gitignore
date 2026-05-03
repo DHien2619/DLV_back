@@ -5,3 +5,7 @@ node_modules/
 dist/
 backend/last-analysis.json
 backend/google-credentials.json
+
+# Personal workspace / notes (do not deploy)
+.claude/
+BOOK.md

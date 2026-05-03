@@ -37,7 +37,9 @@ Trich xuat profile nhu cau KH theo schema.`
     systemInstruction: SYSTEM,
     parts,
     schema: needsSchema,
-    temperature: 0.2
+    temperature: 0.2,
+    tier: 'fast', // Structured extraction — Haiku is sufficient
+    maxOutputTokens: 3000
   });
 }
 

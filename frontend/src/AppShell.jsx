@@ -4,8 +4,10 @@ import {
   IconAnalyze, IconHome, IconHistory, IconCustomers,
   IconQuality, IconOpportunity, IconCompliance, IconMemory,
   IconDashboard, IconCoach, IconComplianceQ,
-  IconMyCalls, IconDraft, IconBell, IconSettings, IconSparkles, IconBook
+  IconMyCalls, IconDraft, IconBell, IconSettings, IconSparkles, IconBook,
+  IconCustomer, IconClose
 } from './icons';
+import { useAuth } from './AuthContext';
 import AgentSheet from './AgentSheet';
 import './AppShell.css';
 
@@ -21,6 +23,7 @@ const NAV = [
   },
   {
     section: 'Kỹ năng AI',
+    requirePermission: 'view_skills',
     items: [
       { to: '/skills/quality',     Icon: IconQuality,     label: 'Chấm điểm tư vấn' },
       { to: '/skills/opportunity', Icon: IconOpportunity, label: 'Phát hiện cơ hội' },
@@ -31,9 +34,10 @@ const NAV = [
   {
     section: 'Quản lý',
     items: [
-      { to: '/dashboard-v2',      Icon: IconDashboard,   label: 'Bảng điều khiển' },
-      { to: '/coach',             Icon: IconCoach,       label: 'Huấn luyện viên' },
-      { to: '/compliance-queue',  Icon: IconComplianceQ, label: 'Hàng đợi tuân thủ' }
+      { to: '/dashboard-v2',      Icon: IconDashboard,   label: 'Bảng điều khiển',     requirePermission: 'view_dashboard' },
+      { to: '/coach',             Icon: IconCoach,       label: 'Huấn luyện viên',     requirePermission: 'coach_team' },
+      { to: '/compliance-queue',  Icon: IconComplianceQ, label: 'Hàng đợi tuân thủ',   requirePermission: 'view_compliance_queue' },
+      { to: '/admin/users',       Icon: IconCustomer,    label: 'Quản lý người dùng',  requirePermission: 'manage_users' }
     ]
   },
   {
@@ -53,6 +57,24 @@ const MOBILE_RIGHT = NAV[0].items.slice(2, 4);
 export default function AppShell({ children }) {
   const location = useLocation();
   const [agentOpen, setAgentOpen] = useState(false);
+  const { user, isAdmin, can, logout } = useAuth();
+
+  // Filter nav groups + items by permission/role
+  const visibleNav = NAV
+    .map(g => {
+      // Filter group by adminOnly OR group-level requirePermission
+      if (g.adminOnly && !isAdmin) return null;
+      if (g.requirePermission && !can(g.requirePermission)) return null;
+      // Filter items by per-item requirePermission
+      const items = g.items.filter(it => !it.requirePermission || can(it.requirePermission));
+      if (items.length === 0) return null;
+      return { ...g, items };
+    })
+    .filter(Boolean);
+
+  // Generate avatar initials
+  const initials = (user?.name || 'U').split(' ').map(s => s[0]).slice(-2).join('').toUpperCase();
+  const roleLabel = isAdmin ? 'Admin' : 'Staff';
 
   return (
     <div className="shell">
@@ -67,7 +89,7 @@ export default function AppShell({ children }) {
         </div>
 
         <nav className="shell-nav">
-          {NAV.map((group, gi) => (
+          {visibleNav.map((group, gi) => (
             <div key={gi} className="shell-nav-group">
               <div className="shell-nav-section">{group.section}</div>
               {group.items.map(it => (
@@ -87,13 +109,24 @@ export default function AppShell({ children }) {
         </button>
 
         <div className="shell-foot">
-          <div className="shell-user">
-            <div className="shell-avatar">HN</div>
-            <div>
-              <b>Admin</b>
-              <small>Quản lý</small>
+          <NavLink to="/settings" className="shell-user">
+            <div className={`shell-avatar ${isAdmin ? 'shell-avatar-admin' : ''}`}>
+              {user?.image ? <img src={user.image} alt={user.name}/> : initials}
             </div>
-          </div>
+            <div className="shell-user-info">
+              <b>{user?.name || 'Người dùng'}</b>
+              <small>
+                <span className={`shell-role-badge shell-role-${isAdmin ? 'admin' : 'staff'}`}>{roleLabel}</span>
+              </small>
+            </div>
+            <button
+              className="shell-logout-btn"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); logout(); }}
+              title="Đăng xuất"
+            >
+              <IconClose size={14}/>
+            </button>
+          </NavLink>
         </div>
       </aside>
 

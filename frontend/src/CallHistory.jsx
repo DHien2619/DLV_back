@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FilterBar, { filtersToQuery } from './FilterBar';
+import { IconHistory, IconSearch, IconCompliance, IconHelp } from './icons';
 import './CallHistory.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -46,7 +47,7 @@ export default function CallHistory() {
     <div className="hist-root">
       <div className="hist-header">
         <div>
-          <h1>📂 Lịch sử phân tích</h1>
+          <h1><IconHistory size={20}/> Lịch sử phân tích</h1>
           <p>{data.total} cuộc gọi {filter.customerName && <>của <b>{filter.customerName}</b></>}</p>
         </div>
         <form onSubmit={onSearch} className="hist-search">
@@ -55,14 +56,14 @@ export default function CallHistory() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
-          <button type="submit">🔍</button>
+          <button type="submit"><IconSearch size={16}/></button>
           {search && <button type="button" onClick={() => { setSearch(''); setSearchInput(''); }} className="hist-clear">✕</button>}
         </form>
       </div>
 
       <FilterBar value={filter} onChange={setFilter} extra={
         <div className="hist-comp-filter">
-          <span className="fb-label">⚠️ Compliance</span>
+          <span className="fb-label"><IconCompliance size={14}/> Compliance</span>
           {[
             { k: 'any', label: 'Tất cả' },
             { k: 'clean', label: 'Sạch' },
@@ -82,7 +83,7 @@ export default function CallHistory() {
         <div className="hist-loading">Đang tải…</div>
       ) : data.items.length === 0 ? (
         <div className="hist-empty">
-          <div className="hist-empty-icon">📂</div>
+          <div className="hist-empty-icon"><IconHistory size={32}/></div>
           <p>Không có cuộc gọi nào khớp bộ lọc.</p>
         </div>
       ) : (
@@ -109,7 +110,7 @@ export default function CallHistory() {
                       <b>{c.customer.name}</b>
                       {c.customer.phone && <small>{c.customer.phone}</small>}
                     </>
-                  ) : <small>❓ Chưa xác định</small>}
+                  ) : <small><IconHelp size={12}/> Chưa xác định</small>}
                 </span>
                 <span className="hist-summ">
                   {c.summary || <small>—</small>}

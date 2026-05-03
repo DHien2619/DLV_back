@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { IconArrowRight, IconBike, IconCart, IconChartLine, IconClose, IconCompass, IconDollar, IconHandshake, IconLoader, IconMemory, IconMoney, IconPaperclip, IconPhone2, IconPill, IconStethoscope, IconTarget, IconWarning } from './icons';
 import './CustomerHub.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -132,13 +133,13 @@ export function CustomerDetail() {
 
   const typeLabels = {
     condition: '🏥 Tình trạng sức khỏe',
-    medication: '💊 Thuốc đã/đang dùng',
+    medication: 'Rx Thuốc đã/đang dùng',
     allergy: '⚠️ Dị ứng',
     preference: '🧭 Sở thích & phong cách quyết định',
     goal: '🎯 Mục tiêu',
-    family: '👨‍👩‍👧 Gia đình',
+    family: ' Gia đình',
     purchase: '🛒 Đã mua',
-    contact: '📞 Thông tin liên lạc',
+    contact: ' Thông tin liên lạc',
     lifestyle: '🏃 Lối sống'
   };
 
@@ -148,7 +149,7 @@ export function CustomerDetail() {
         <div>
           <h1>{customer.name}</h1>
           <p className="ch-sub">
-            {customer.phone && <span>📞 {customer.phone}</span>}
+            {customer.phone && <span><IconPhone2 size={16}/> {customer.phone}</span>}
             {customer.code && <span>🔖 {customer.code}</span>}
             {customer.source && <span>📍 {customer.source}</span>}
             {customer.age && <span>🎂 {customer.age}</span>}
@@ -163,7 +164,7 @@ export function CustomerDetail() {
 
       {customer.next_best_action && (
         <div className="ch-nba">
-          <h4>🎯 Next Best Action</h4>
+          <h4><IconTarget size={16}/> Next Best Action</h4>
           <p>{customer.next_best_action}</p>
         </div>
       )}
@@ -171,10 +172,10 @@ export function CustomerDetail() {
       <div className="ch-360-grid">
         {/* LEFT: Memory facts */}
         <section className="ch-card">
-          <h2>🧠 Kiến thức về KH (Memory)</h2>
+          <h2><IconMemory size={16}/> Kiến thức về KH (Memory)</h2>
           <p className="ch-card-sub">Agent dùng để phân tích call mới. Cập nhật tự động sau mỗi cuộc gọi.</p>
           {Object.keys(byType).length === 0 ? (
-            <p className="ch-empty-inline">Chưa có memory. Chạy phân tích 1 cuộc gọi → Agent sẽ học.</p>
+            <p className="ch-empty-inline">Chưa có memory. Chạy phân tích 1 cuộc gọi <IconArrowRight size={14}/> Agent sẽ học.</p>
           ) : (
             Object.entries(byType).map(([type, facts]) => (
               <div key={type} className="ch-mem-group">
@@ -189,8 +190,8 @@ export function CustomerDetail() {
                     <div className="ch-fact-meta">
                       {f.fact_value?.severity && <span className={`ch-sev ${f.fact_value.severity}`}>{f.fact_value.severity}</span>}
                       {f.fact_value?.duration && <span>⏱ {f.fact_value.duration}</span>}
-                      {f.fact_value?.effectiveness && <span>📊 {f.fact_value.effectiveness}</span>}
-                      {f.fact_value?.amount_vnd && <span>💵 {fmtVND(f.fact_value.amount_vnd)}</span>}
+                      {f.fact_value?.effectiveness && <span><IconChartLine size={16}/> {f.fact_value.effectiveness}</span>}
+                      {f.fact_value?.amount_vnd && <span><IconDollar size={14}/> {fmtVND(f.fact_value.amount_vnd)}</span>}
                     </div>
                     {f.source_quote && (
                       <div className="ch-fact-src">"{f.source_quote}"</div>
@@ -204,7 +205,7 @@ export function CustomerDetail() {
 
         {/* MIDDLE: Call timeline */}
         <section className="ch-card">
-          <h2>📞 Lịch sử cuộc gọi</h2>
+          <h2><IconPhone2 size={16}/> Lịch sử cuộc gọi</h2>
           {calls.length === 0 ? (
             <p className="ch-empty-inline">Chưa có cuộc gọi nào.</p>
           ) : (
@@ -226,7 +227,7 @@ export function CustomerDetail() {
                       <span>Opp: <b>{c.opportunity_score || '—'}</b>/100</span>
                     </div>
                     <p className="ch-call-summary">{summ}</p>
-                    {c.audio_filename && <small>📎 {c.audio_filename}</small>}
+                    {c.audio_filename && <small><IconPaperclip size={14}/> {c.audio_filename}</small>}
                   </div>
                 );
               })}
@@ -236,7 +237,7 @@ export function CustomerDetail() {
 
         {/* RIGHT: Opportunities */}
         <section className="ch-card">
-          <h2>💰 Opportunities</h2>
+          <h2><IconMoney size={16}/> Opportunities</h2>
           {opportunities.length === 0 ? (
             <p className="ch-empty-inline">Chưa có opportunity.</p>
           ) : (
@@ -250,7 +251,7 @@ export function CustomerDetail() {
                   <div className="ch-opp-meta">
                     {o.estimated_value_vnd ? <span>{fmtVND(o.estimated_value_vnd)}</span> : null}
                     {o.score ? <span>Score {o.score}</span> : null}
-                    {o.due_date ? <span>⏳ {new Date(o.due_date).toLocaleDateString('vi-VN')}</span> : null}
+                    {o.due_date ? <span><IconLoader size={14}/> {new Date(o.due_date).toLocaleDateString('vi-VN')}</span> : null}
                   </div>
                   {o.next_action && <p className="ch-opp-action">{o.next_action}</p>}
                   {o.outcome && <small className={`ch-opp-outcome ${o.outcome}`}>{o.outcome}</small>}

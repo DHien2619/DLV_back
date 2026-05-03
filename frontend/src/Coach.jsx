@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { IconAlertTriangle, IconArrowLeft, IconArrowRight, IconChartLine, IconCheck, IconPhone2, IconTarget } from './icons';
 import './Coach.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -77,7 +78,7 @@ export default function Coach() {
                 </div>
                 <div className="cc-rep-info">
                   <b>{r.user?.name || `Rep #${r.rep_user_id}`}</b>
-                  <small>{r.calls} calls · Q̄ {r.avg_quality}{r.red > 0 ? ` · 🔴 ${r.red}` : ''}</small>
+                  <small>{r.calls} calls · Q̄ {r.avg_quality}{r.red > 0 ? ` ·  ${r.red}` : ''}</small>
                 </div>
               </button>
             ))
@@ -89,7 +90,7 @@ export default function Coach() {
           {loading ? (
             <div className="cc-loading">Đang tải…</div>
           ) : !data ? (
-            <div className="cc-loading">← Chọn rep để xem</div>
+            <div className="cc-loading"><IconArrowLeft size={14}/> Chọn rep để xem</div>
           ) : (
             <>
               <div className="cc-rep-header">
@@ -108,7 +109,7 @@ export default function Coach() {
                   </div>
                   {data.red_count > 0 && (
                     <div>
-                      <small>🔴 RED</small>
+                      <small><IconAlertTriangle size={14}/> RED</small>
                       <b style={{ color: 'var(--danger)' }}>{data.red_count}</b>
                     </div>
                   )}
@@ -117,8 +118,8 @@ export default function Coach() {
 
               {/* Criteria breakdown */}
               <section className="cc-card">
-                <h3>📊 Phân tích theo tiêu chí</h3>
-                <p className="cc-sub">Trung bình các tiêu chí rubric trên {data.calls} calls. Sắp xếp từ yếu nhất → mạnh nhất.</p>
+                <h3><IconChartLine size={16}/> Phân tích theo tiêu chí</h3>
+                <p className="cc-sub">Trung bình các tiêu chí rubric trên {data.calls} calls. Sắp xếp từ yếu nhất <IconArrowRight size={14}/> mạnh nhất.</p>
                 <div className="cc-criteria">
                   {data.criteria.map(c => (
                     <div key={c.key} className="cc-crit">
@@ -143,7 +144,7 @@ export default function Coach() {
               <div className="cc-row">
                 {/* Strengths */}
                 <section className="cc-card">
-                  <h3>✅ Điểm mạnh thường xuyên</h3>
+                  <h3><IconCheck size={14}/> Điểm mạnh thường xuyên</h3>
                   {data.top_strengths.length === 0 ? (
                     <p className="cc-empty-small">Chưa đủ data</p>
                   ) : (
@@ -160,7 +161,7 @@ export default function Coach() {
 
                 {/* Improvements */}
                 <section className="cc-card cc-card-improve">
-                  <h3>🎯 Cần cải thiện</h3>
+                  <h3><IconTarget size={16}/> Cần cải thiện</h3>
                   {data.top_improvements.length === 0 ? (
                     <p className="cc-empty-small">Chưa đủ data</p>
                   ) : (
@@ -178,7 +179,7 @@ export default function Coach() {
 
               {/* Recent calls */}
               <section className="cc-card">
-                <h3>📞 10 cuộc gọi gần nhất</h3>
+                <h3><IconPhone2 size={16}/> 10 cuộc gọi gần nhất</h3>
                 <div className="cc-calls">
                   {data.recent_calls.map(c => (
                     <div key={c.id} className="cc-call" onClick={() => navigate(`/call/${c.id}`)}>

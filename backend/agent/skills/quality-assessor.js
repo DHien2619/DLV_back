@@ -70,7 +70,9 @@ Cham diem rubric theo schema.`
     systemInstruction: SYSTEM,
     parts,
     schema: rubricSchema,
-    temperature: 0.2
+    temperature: 0.2,
+    tier: 'premium', // 9-criteria rubric reasoning needs Sonnet
+    maxOutputTokens: 6000
   });
 }
 

@@ -62,7 +62,9 @@ Phan tich co hoi ban hang va tra ve schema.`
     systemInstruction: SYSTEM,
     parts,
     schema: opportunitySchema,
-    temperature: 0.3
+    temperature: 0.3,
+    tier: 'premium', // Buying signals + objection nuance — Sonnet
+    maxOutputTokens: 4000
   });
 }
 

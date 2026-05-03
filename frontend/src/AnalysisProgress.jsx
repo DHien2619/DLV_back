@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { IconArrowRight, IconChartLine, IconCheck, IconClose, IconLayers, IconMemory, IconMoney, IconSearch, IconWarning, IconZap } from './icons';
 import './AnalysisProgress.css';
 
 /**
@@ -8,33 +9,33 @@ import './AnalysisProgress.css';
  *   events: Array of { step, status, ts, ms?, error?, ... }
  *
  * Steps shown (in order):
- *   init           → Nhận file
- *   upload         → Upload lên Gemini
- *   diarize        → Phiên âm & tách speaker
- *   rag-context    → Load lịch sử KH
- *   matcher        → Match KH không rõ
+ *   init           <IconArrowRight size={14}/> Nhận file
+ *   upload         <IconArrowRight size={14}/> Upload lên Gemini
+ *   diarize        <IconArrowRight size={14}/> Phiên âm & tách speaker
+ *   rag-context    <IconArrowRight size={14}/> Load lịch sử KH
+ *   matcher        <IconArrowRight size={14}/> Match KH không rõ
  *   skills (parent) với 5 children: quality, needs, opportunity, compliance, structure
- *   persist        → Lưu vào DB
- *   complete       → Done
+ *   persist        <IconArrowRight size={14}/> Lưu vào DB
+ *   complete       <IconArrowRight size={14}/> Done
  */
 
 const STAGES = [
   { key: 'init',        icon: '📥', label: 'Nhận file & chuẩn bị' },
   { key: 'upload',      icon: '☁️',  label: 'Tải file lên Gemini' },
   { key: 'diarize',     icon: '🎙️', label: 'Phiên âm & tách speaker (Agent/KH)', longHint: 'Khoảng 15-30 giây' },
-  { key: 'rag-context', icon: '🧠', label: 'Tải lịch sử & trí nhớ KH', optional: true },
-  { key: 'matcher',     icon: '🔍', label: 'Tìm KH khớp (fuzzy + semantic)', optional: true },
+  { key: 'rag-context', icon: '', label: 'Tải lịch sử & trí nhớ KH', optional: true },
+  { key: 'matcher',     icon: '', label: 'Tìm KH khớp (fuzzy + semantic)', optional: true },
   { key: 'skills',      icon: '⚡', label: 'Phân tích 5 kỹ năng song song', longHint: '~15-30s', hasChildren: true },
   { key: 'persist',     icon: '💾', label: 'Lưu kết quả vào cơ sở dữ liệu' },
-  { key: 'complete',    icon: '✅', label: 'Hoàn tất' }
+  { key: 'complete',    icon: '✓', label: 'Hoàn tất' }
 ];
 
 const SKILL_ITEMS = [
-  { key: 'skill:quality',     icon: '📊', label: 'Chấm rubric 9 tiêu chí' },
-  { key: 'skill:needs',       icon: '🧠', label: 'Trích nhu cầu KH' },
+  { key: 'skill:quality',     icon: '', label: 'Chấm rubric 9 tiêu chí' },
+  { key: 'skill:needs',       icon: '', label: 'Trích nhu cầu KH' },
   { key: 'skill:opportunity', icon: '💰', label: 'Phát hiện cơ hội & signals' },
   { key: 'skill:compliance',  icon: '⚠️', label: 'Kiểm tra tuân thủ' },
-  { key: 'skill:structure',   icon: '🗂️', label: 'Phân đoạn & sentiment arc' }
+  { key: 'skill:structure',   icon: '', label: 'Phân đoạn & sentiment arc' }
 ];
 
 function getStepStatus(events, stepKey) {
@@ -166,7 +167,7 @@ export default function AnalysisProgress({ events = [] }) {
       </div>
 
       <div className="ap-footer">
-        <small>🧠 Hệ thống: Gemini 2.5 Flash · gemini-embedding-001 · pgvector RAG</small>
+        <small><IconMemory size={16}/> Hệ thống: Gemini 2.5 Flash · gemini-embedding-001 · pgvector RAG</small>
       </div>
     </div>
   );

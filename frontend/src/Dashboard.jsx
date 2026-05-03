@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { IconArrowRight, IconCart, IconChartLine, IconChat, IconClose, IconDraft, IconFire, IconHelp, IconLightbulb, IconLock, IconPhone2, IconSearch, IconStethoscope, IconTarget, IconWarning } from './icons';
 import './Dashboard.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -26,14 +27,14 @@ const SentimentBadge = ({ sentiment }) => {
         'Khá khó tính':      { cls: 'badge-yellow', icon: '😤' },
         'Tích cực và Hợp tác':{ cls: 'badge-green', icon: '😊' },
     };
-    const s = map[sentiment] || { cls: 'badge-gray', icon: '❓' };
+    const s = map[sentiment] || { cls: 'badge-gray', icon: '?' };
     return <span className={`badge ${s.cls}`}>{s.icon} {sentiment || 'Chưa rõ'}</span>;
 };
 
 /* ── Readiness badge ────────────────────────────────────── */
 const ReadinessBadge = ({ level }) => {
     const map = { 'Cao': 'badge-green', 'Trung Bình': 'badge-yellow', 'Thấp': 'badge-red' };
-    return <span className={`badge ${map[level] || 'badge-gray'}`}>🛒 {level || 'N/A'}</span>;
+    return <span className={`badge ${map[level] || 'badge-gray'}`}><IconCart size={14}/> {level || 'N/A'}</span>;
 };
 
 /* ── SVG Donut ──────────────────────────────────────────── */
@@ -153,7 +154,7 @@ const Dashboard = ({ onBack }) => {
                 alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'Inter, sans-serif', gap: '14px'
             }}>
-                <div style={{ fontSize: '56px' }}>🔒</div>
+                <div style={{ fontSize: '56px' }}><IconLock size={14}/></div>
                 <h2 style={{ color: '#0f172a', fontSize: '22px', fontWeight: 800 }}>Không có quyền truy cập</h2>
                 <p style={{ color: '#475569', fontSize: '13px' }}>Chỉ Admin mới được xem Dashboard.</p>
                 <p style={{ color: '#94a3b8', fontSize: '12px' }}>Đang chuyển hướng về trang chính...</p>
@@ -192,7 +193,7 @@ const Dashboard = ({ onBack }) => {
     const highReady  = analyzed.filter(r => r.insights?.readiness_to_buy === 'Cao').length;
     const positive   = analyzed.filter(r => ['Tích cực','Hợp tác'].includes(r.insights?.customer_sentiment)).length;
 
-    /* Kỳ này: sắn sàng mua CAO mà có pain Nặng → uu tiên gọi lại */
+    /* Kỳ này: sắn sàng mua CAO mà có pain Nặng <IconArrowRight size={14}/> uu tiên gọi lại */
     const priorityCallbacks = analyzed.filter(r => {
         if (r.insights?.readiness_to_buy !== 'Cao') return false;
         const pp = r.insights?.pain_points || [];
@@ -379,7 +380,7 @@ const Dashboard = ({ onBack }) => {
                         Quay lại
                     </button>
                     <div>
-                        <div className="dash-title">📊 Dashboard Phân Tích</div>
+                        <div className="dash-title"><IconChartLine size={16}/> Dashboard Phân Tích</div>
                         <div className="dash-subtitle">Tổng quan chất lượng tư vấn &amp; Insight khách hàng</div>
                     </div>
                 </div>
@@ -566,7 +567,7 @@ const Dashboard = ({ onBack }) => {
                 {priorityCallbacks.length > 0 && (
                     <div className="dash-card" style={{ marginBottom:'20px', border:'1.5px solid #fca5a5', background:'#fff5f5' }}>
                         <div className="dash-card-title" style={{ color:'#dc2626' }}>
-                            🔥 Cần gọi lại ngay — KH sẵn sàng mua & đang đau nặng ({priorityCallbacks.length})
+                            <IconFire size={16}/> Cần gọi lại ngay — KH sẵn sàng mua & đang đau nặng ({priorityCallbacks.length})
                         </div>
                         <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginTop:'10px' }}>
                             {priorityCallbacks.map((r, i) => {
@@ -581,7 +582,7 @@ const Dashboard = ({ onBack }) => {
                                             <div style={{ fontWeight:600, fontSize:'13px', color:'#0f172a' }}>
                                                 {r.employee_name || 'N/A'} · {r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : ''}
                                             </div>
-                                            {painText && <div style={{ fontSize:'12px', color:'#dc2626', marginTop:'2px' }}>⚠️ {painText}</div>}
+                                            {painText && <div style={{ fontSize:'12px', color:'#dc2626', marginTop:'2px' }}><IconWarning size={14}/> {painText}</div>}
                                             {signal && <div style={{ fontSize:'11px', color:'#64748b', marginTop:'2px', fontStyle:'italic' }}>"{signal}"</div>}
                                         </div>
                                         <span style={{ fontSize:'11px', fontWeight:700, color:'#fff', background:'#dc2626', padding:'3px 10px', borderRadius:'12px' }}>Gọi lại</span>
@@ -597,7 +598,7 @@ const Dashboard = ({ onBack }) => {
                     {[
                         { cls:'blue',   icon:'🎯', label:'Điểm TB Tư Vấn',    val:avgScore, sub:'/ 100 điểm' },
                         { cls:'green',  icon:'🛒', label:'Sẵn Sàng Mua Cao',  val:highReady,sub:`trên ${analyzed.length} KH phân tích` },
-                        { cls:'purple', icon:'📞', label:'Tổng Cuộc Gọi',     val:records.length, sub:'trong hệ thống' },
+                        { cls:'purple', icon:'', label:'Tổng Cuộc Gọi',     val:records.length, sub:'trong hệ thống' },
                         { cls:'orange', icon:'😊', label:'KH Tích Cực',       val:positive, sub:'cảm xúc tốt' },
                     ].map(({ cls, icon, label, val, sub }) => (
                         <div key={label} className={`dash-kpi-card ${cls}`}>
@@ -718,7 +719,7 @@ const Dashboard = ({ onBack }) => {
                             </select>
                             {(filter !== 'all' || searchDate || searchName) && (
                                 <button className="dash-clear-btn" onClick={() => { setFilter('all'); setSearchDate(''); setSearchName(''); }}>
-                                    ✕ Xóa filter
+                                    <IconClose size={14}/> Xóa filter
                                 </button>
                             )}
                         </div>
@@ -790,47 +791,47 @@ const Dashboard = ({ onBack }) => {
                 {selectedRecord && (
                     <div className="dash-detail-panel">
                         <div className="dash-detail-header">
-                            <h3>🔍 Chi tiết phân tích</h3>
-                            <button className="dash-close-btn" onClick={() => setSelectedRecord(null)}>✕</button>
+                            <h3><IconSearch size={16}/> Chi tiết phân tích</h3>
+                            <button className="dash-close-btn" onClick={() => setSelectedRecord(null)}><IconClose size={14}/></button>
                         </div>
                         <div className="dash-detail-body">
                             {selectedRecord.insights ? (
                                 <div className="dash-detail-grid">
                                     <div className="detail-block full-width">
-                                        <div className="detail-label">🗒️ Tóm tắt cuộc gọi</div>
+                                        <div className="detail-label"><IconDraft size={16}/> Tóm tắt cuộc gọi</div>
                                         <p style={{fontSize:'13px',color:'#334155',lineHeight:'1.6',margin:'8px 0 0'}}>
                                             {selectedRecord.insights.call_summary || '—'}
                                         </p>
                                     </div>
                                     <div className="detail-block">
-                                        <div className="detail-label">🎯 Điểm chất lượng</div>
+                                        <div className="detail-label"><IconTarget size={16}/> Điểm chất lượng</div>
                                         <div className="detail-score">{selectedRecord.insights.call_score}<span style={{ fontSize:'14px', color:'#334155' }}>/100</span></div>
                                         <ScoreBar score={selectedRecord.insights.call_score} />
                                     </div>
                                     <div className="detail-block">
-                                        <div className="detail-label">🛒 Sẵn sàng mua</div>
+                                        <div className="detail-label"><IconCart size={14}/> Sẵn sàng mua</div>
                                         <div style={{ marginTop:'10px' }}>
                                             <ReadinessBadge level={selectedRecord.insights.readiness_to_buy} />
                                         </div>
                                         {selectedRecord.insights.readiness_signals && (
                                             <p style={{fontSize:'11px',color:'#64748b',marginTop:'6px',fontStyle:'italic'}}>
-                                                💬 “{selectedRecord.insights.readiness_signals}”
+                                                <IconChat size={14}/> “{selectedRecord.insights.readiness_signals}”
                                             </p>
                                         )}
                                     </div>
                                     <div className="detail-block">
-                                        <div className="detail-label">💬 Cảm xúc KH</div>
+                                        <div className="detail-label"><IconChat size={14}/> Cảm xúc KH</div>
                                         <div style={{ marginTop:'10px' }}>
                                             <SentimentBadge sentiment={selectedRecord.insights.customer_sentiment} />
                                         </div>
                                         {selectedRecord.insights.sentiment_evidence && (
                                             <p style={{fontSize:'11px',color:'#64748b',marginTop:'6px',fontStyle:'italic'}}>
-                                                💬 “{selectedRecord.insights.sentiment_evidence}”
+                                                <IconChat size={14}/> “{selectedRecord.insights.sentiment_evidence}”
                                             </p>
                                         )}
                                     </div>
                                     <div className="detail-block full-width">
-                                        <div className="detail-label">🩺 Nỗi đau khách hàng</div>
+                                        <div className="detail-label"><IconStethoscope size={14}/> Nỗi đau khách hàng</div>
                                         <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'8px'}}>
                                             {(selectedRecord.insights.pain_points || []).map((p,i) => {
                                                 const isObj = typeof p === 'object';
@@ -844,14 +845,14 @@ const Dashboard = ({ onBack }) => {
                                                             <span className="pain-tag">{issue}</span>
                                                             {sev && <span style={{fontSize:'11px',fontWeight:700,color:sevColor,background:sevColor+'15',padding:'2px 8px',borderRadius:'12px'}}>{sev}</span>}
                                                         </div>
-                                                        {evid && <p style={{fontSize:'11px',color:'#64748b',margin:'6px 0 0',fontStyle:'italic'}}>💬 “{evid}”</p>}
+                                                        {evid && <p style={{fontSize:'11px',color:'#64748b',margin:'6px 0 0',fontStyle:'italic'}}><IconChat size={14}/> “{evid}”</p>}
                                                     </div>
                                                 );
                                             })}
                                         </div>
                                     </div>
                                     <div className="detail-block full-width">
-                                        <div className="detail-label">💡 Nhu cầu</div>
+                                        <div className="detail-label"><IconLightbulb size={14}/> Nhu cầu</div>
                                         <div className="detail-tags">
                                             {(selectedRecord.insights.needs || []).map((n,i) =>
                                                 <span key={i} className="need-tag">{n}</span>)}

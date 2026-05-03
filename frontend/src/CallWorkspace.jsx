@@ -3,10 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import WaveSurfer from 'wavesurfer.js';
 import AnalysisProgress from './AnalysisProgress';
 import { CanvasView, fmtTime } from './CallCanvas';
-import {
-  IconCustomer, IconClock, IconPaperclip, IconSparkles, IconArrowLeft,
-  IconChat, IconSend, IconLoader, IconPlus, IconAlert, IconCheck, IconAnalyze
-} from './icons';
+import { IconAlert, IconAnalyze, IconArrowLeft, IconChat, IconCheck, IconClock, IconCustomer, IconLoader, IconPaperclip, IconPlus, IconSend, IconSparkles, IconTarget, IconWarning } from './icons';
 import './CallWorkspace.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -213,7 +210,7 @@ function InlineChat({ customerId, callContext, onCitationClick }) {
                 )}
                 {m.actions?.length > 0 && (
                   <div className="ws-cite-actions">
-                    {m.actions.map((a, j) => <div key={j}>🎯 {a}</div>)}
+                    {m.actions.map((a, j) => <div key={j}><IconTarget size={16}/> {a}</div>)}
                   </div>
                 )}
                 {m.ms && <div className="ws-msg-meta">{m.confidence} · {m.ms}ms</div>}

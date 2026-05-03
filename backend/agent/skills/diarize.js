@@ -10,8 +10,8 @@ const fs = require("fs");
 const path = require("path");
 const { generateStructured } = require("../claude-client");
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_MODEL = process.env.GROQ_WHISPER_MODEL || "whisper-large-v3";
+const GROQ_API_KEY = (process.env.GROQ_API_KEY || "").trim();
+const GROQ_MODEL = (process.env.GROQ_WHISPER_MODEL || "whisper-large-v3").trim();
 const GROQ_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 
 if (!GROQ_API_KEY) console.warn("[diarize] GROQ_API_KEY missing");
@@ -19,16 +19,30 @@ if (!GROQ_API_KEY) console.warn("[diarize] GROQ_API_KEY missing");
 // ============================================================
 // Step 1a: Transcribe with Groq Whisper (returns segments + timestamps)
 // ============================================================
-async function transcribeWithGroq(filePath) {
-  // Use FormData (available in Node 18+ globally)
-  const form = new FormData();
+// Map ext → MIME type Groq accepts
+const EXT_MIME = {
+  ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4",
+  ".mp4": "audio/mp4",  ".ogg": "audio/ogg", ".flac": "audio/flac",
+  ".webm": "audio/webm", ".mpga": "audio/mpeg", ".mpeg": "audio/mpeg",
+  ".opus": "audio/opus"
+};
+
+async function transcribeWithGroq(filePath, originalName = null, mimeType = null) {
   const fileBuffer = fs.readFileSync(filePath);
-  const filename = path.basename(filePath);
-  const blob = new Blob([fileBuffer]);
-  form.append("file", blob, filename);
+  // Prefer originalName (has proper extension) over tmp filePath (multer random name)
+  const nameForExt = originalName || path.basename(filePath);
+  const ext = (path.extname(nameForExt) || ".mp3").toLowerCase();
+  const mime = (mimeType && mimeType.startsWith("audio/")) ? mimeType : (EXT_MIME[ext] || "audio/mpeg");
+
+  // Ensure filename has a recognized extension (Groq checks filename too)
+  const safeName = ext in EXT_MIME ? (originalName || `audio${ext}`) : `audio.mp3`;
+
+  const blob = new Blob([fileBuffer], { type: mime });
+  const form = new FormData();
+  form.append("file", blob, safeName);
   form.append("model", GROQ_MODEL);
-  form.append("response_format", "verbose_json"); // segments + timestamps
-  form.append("language", "vi"); // Vietnamese
+  form.append("response_format", "verbose_json");
+  form.append("language", "vi");
   form.append("temperature", "0");
 
   const res = await fetch(GROQ_URL, {
@@ -39,12 +53,9 @@ async function transcribeWithGroq(filePath) {
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Groq Whisper failed (${res.status}): ${errText}`);
+    throw new Error(`Groq Whisper failed (${res.status}) [file=${safeName} mime=${mime}]: ${errText}`);
   }
-
-  const data = await res.json();
-  // data: { text, language, duration, segments: [{ id, start, end, text, ... }] }
-  return data;
+  return res.json();
 }
 
 // ============================================================
@@ -110,6 +121,7 @@ Tra ve JSON theo schema voi mang "labels" co dung ${segments.length} phan tu.`;
     parts: [{ text: userText }],
     schema: speakerLabelsSchema,
     temperature: 0.1,
+    tier: 'fast', // Just AGENT/CUSTOMER classification — Haiku
     maxOutputTokens: 4096
   });
 
@@ -126,11 +138,11 @@ Tra ve JSON theo schema voi mang "labels" co dung ${segments.length} phan tu.`;
 // ============================================================
 // Main: Diarize = Groq transcribe + Claude speaker label
 // ============================================================
-async function diarizeAudio({ filePath }) {
+async function diarizeAudio({ filePath, originalName = null, mimeType = null }) {
   if (!filePath) throw new Error("[diarize] filePath required");
 
   // Step 1: Transcribe
-  const whisper = await transcribeWithGroq(filePath);
+  const whisper = await transcribeWithGroq(filePath, originalName, mimeType);
   const rawSegments = Array.isArray(whisper.segments) ? whisper.segments : [];
 
   if (rawSegments.length === 0) {
@@ -151,9 +163,8 @@ async function diarizeAudio({ filePath }) {
   try {
     labels = await labelSpeakers(rawSegments);
   } catch (e) {
-    console.warn("[diarize] speaker labeling failed, using alternating fallback:", e.message);
-    // Fallback: alternate AGENT/CUSTOMER starting with AGENT
-    labels = rawSegments.map((_, i) => (i % 2 === 0 ? "AGENT" : "CUSTOMER"));
+    console.warn("[diarize] speaker labeling failed, using heuristic fallback:", e.message);
+    labels = heuristicLabel(rawSegments);
   }
 
   // Step 3: Merge into final schema
@@ -181,6 +192,61 @@ function diarizedToText(diarized) {
   return diarized.segments
     .map(s => `[${formatTime(s.start_sec)}] ${s.speaker}: ${s.text}`)
     .join("\n");
+}
+
+// Heuristic speaker labeling fallback (only used when Claude labeling fails).
+// Strategy:
+//  - First segment is AGENT (greeting) — matches our prompt assumption
+//  - Score each segment with AGENT/CUSTOMER markers
+//  - Apply continuity bias (consecutive short segments tend to be same speaker)
+const AGENT_MARKERS = [
+  /\b(em|mình|nhà thuốc|bên em|công ty|tư vấn|dược sĩ|thưa)\b/i,
+  /\b(xin chào|alo|chào (anh|chị|cô|chú|bác|bạn))/i,
+  /\b(sản phẩm|liều dùng|cách dùng|công dụng|thành phần|đơn hàng|giao hàng)\b/i,
+  /\b(em (xin|sẽ|gửi|tư vấn|hỗ trợ|giới thiệu|chốt))/i,
+];
+const CUSTOMER_MARKERS = [
+  /\b(tôi|chị|anh|cô|chú|bác|con|cháu|bố|mẹ|ông|bà)\b/i,
+  /\b(đau|nhức|mệt|khó chịu|triệu chứng|bệnh|uống thuốc gì)\b/i,
+  /\b(bao nhiêu|giá|đắt|rẻ|mắc|có tác dụng|có khỏi|có hết)\b/i,
+  /\b(để (tôi|anh|chị) suy nghĩ|chưa quyết|hỏi vợ|hỏi chồng|từ chối|không cần)\b/i,
+];
+
+function scoreSpeaker(text) {
+  if (!text) return 0;
+  let score = 0;
+  for (const re of AGENT_MARKERS)    if (re.test(text)) score += 1;
+  for (const re of CUSTOMER_MARKERS) if (re.test(text)) score -= 1;
+  return score; // >0 → AGENT, <0 → CUSTOMER, 0 → unknown
+}
+
+function heuristicLabel(segments) {
+  const labels = new Array(segments.length).fill(null);
+  // Step 1: score each segment
+  const scores = segments.map(s => scoreSpeaker(s.text));
+  // Step 2: assign confident labels first
+  scores.forEach((sc, i) => {
+    if (sc >= 1) labels[i] = "AGENT";
+    else if (sc <= -1) labels[i] = "CUSTOMER";
+  });
+  // Step 3: anchor first segment as AGENT if still unknown (greeting bias)
+  if (labels[0] === null) labels[0] = "AGENT";
+  // Step 4: fill gaps using continuity (consecutive unlabeled segments inherit
+  // from the last labeled neighbor, then alternate when speaker likely changed —
+  // detected by long gap or punctuation-heavy text)
+  let last = labels[0];
+  for (let i = 1; i < labels.length; i++) {
+    if (labels[i] !== null) { last = labels[i]; continue; }
+    const prev = segments[i - 1];
+    const cur = segments[i];
+    const gap = (cur.start || 0) - (prev.end || 0);
+    const longSilence = gap > 1.2;        // > 1.2s gap → likely turn change
+    const endsWithQuestion = /[?？]\s*$/.test(prev.text || "");
+    const turnChange = longSilence || endsWithQuestion;
+    labels[i] = turnChange ? (last === "AGENT" ? "CUSTOMER" : "AGENT") : last;
+    last = labels[i];
+  }
+  return labels;
 }
 
 function formatTime(sec) {

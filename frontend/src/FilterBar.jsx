@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { IconCalendar, IconCustomer } from './icons';
 import './FilterBar.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -49,7 +50,7 @@ export default function FilterBar({ value = {}, onChange, showCustomer = true, s
     <div className="fb-root">
       {showPreset && (
         <div className="fb-group">
-          <span className="fb-label">📅 Thời gian</span>
+          <span className="fb-label"><IconCalendar size={14}/> Thời gian</span>
           <div className="fb-presets">
             {PRESETS.map(p => (
               <button
@@ -64,7 +65,7 @@ export default function FilterBar({ value = {}, onChange, showCustomer = true, s
 
       {showCustomer && (
         <div className="fb-group">
-          <span className="fb-label">👤 Khách hàng</span>
+          <span className="fb-label"><IconCustomer size={14}/> Khách hàng</span>
           {value.customerId ? (
             <div className="fb-chip-active">
               <b>{customerName}</b>

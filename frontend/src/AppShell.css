@@ -5,17 +5,21 @@
   background: var(--ink-50);
 }
 
-/* ---------- Sidebar ---------- */
+/* ---------- Sidebar (fixed, always visible) ---------- */
 .shell-sidebar {
   width: var(--sidebar-width);
   background: var(--sidebar-bg);
   border-right: 1px solid var(--sidebar-border);
   padding: 22px 14px 16px;
   display: flex; flex-direction: column;
-  position: sticky; top: 0;
+  position: fixed; top: 0; left: 0; bottom: 0;
   height: 100vh;
-  flex-shrink: 0;
+  z-index: 20;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
+/* Compensate main content for fixed sidebar */
+.shell-main { margin-left: var(--sidebar-width); }
 
 .shell-brand {
   padding: 0 10px 18px;
@@ -123,9 +127,47 @@
   box-shadow: var(--shadow-brand);
   flex-shrink: 0;
   letter-spacing: 0.02em;
+  overflow: hidden;
 }
-.shell-user b { font-size: 13px; display: block; color: var(--ink-900); font-weight: 600; }
+.shell-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.shell-user { text-decoration: none; color: inherit; }
+.shell-user.active { background: var(--primary-soft); }
+.shell-user-info { flex: 1; min-width: 0; overflow: hidden; }
+.shell-user b {
+  font-size: 13px; display: block; color: var(--ink-900); font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .shell-user small { font-size: 11px; color: var(--ink-500); }
+.shell-avatar-admin { background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%); }
+.shell-role-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.shell-role-admin {
+  background: linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%);
+  color: #b45309;
+}
+.shell-role-staff {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.shell-logout-btn {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ink-400);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.shell-logout-btn:hover { background: var(--red-50); color: var(--danger); }
 
 /* ---------- Main ---------- */
 .shell-main {
@@ -194,6 +236,7 @@
 /* Tablet only — icon-only sidebar (769px - 980px) */
 @media (min-width: 769px) and (max-width: 980px) {
   .shell-sidebar { width: 64px; padding: 16px 8px; }
+  .shell-main { margin-left: 64px; }
   .shell-brand small, .shell-nav-label, .shell-nav-section, .shell-user > div, .shell-logo-text { display: none; }
   .shell-user { justify-content: center; }
   .shell-content { padding: 20px 16px; }
@@ -203,6 +246,7 @@
 /* ≤768px: hide desktop sidebar, show bottom nav */
 @media (max-width: 768px) {
   .shell-sidebar-desktop { display: none !important; }
+  .shell-main { margin-left: 0; }
 
   .shell-bottom-nav {
     display: flex !important;

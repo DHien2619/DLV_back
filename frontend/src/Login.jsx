@@ -1,94 +1,113 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from './supabaseClient';
+import { useAuth } from './AuthContext';
+import { IconSparkles, IconAlert, IconLoader } from './icons';
 import './Login.css';
-import { useNavigate } from 'react-router-dom';
 
-const Login = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const navigate = useNavigate();
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-        try {
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-            const response = await axios.post(`${API_URL}/login`, { email, password });
-            const token = response.data.token;
-            const user = response.data.user;
+export default function Login() {
+  const navigate = useNavigate();
+  const { setSessionFromSupabase } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            
-            navigate('/AudioRecorder');
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError(null); setLoading(true);
+    try {
+      // 1. Authenticate via Supabase
+      const { data, error: sbErr } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password
+      });
+      if (sbErr) throw sbErr;
+      if (!data.session) throw new Error('Không nhận được session');
 
-        } catch (error) {
-            console.error("Error logging in:", error.response ? error.response.data : error.message);
-            alert("Login failed. Please check your credentials.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+      // 2. Bridge to our backend → get app JWT + role
+      const res = await fetch(`${API_URL}/auth/supabase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: data.session.access_token })
+      });
+      const bridgeData = await res.json();
+      if (!res.ok) throw new Error(bridgeData.message || 'Bridge failed');
 
-    return (
-        <div className="auth-wrapper">
-            <div className="auth-container">
-                <div className="auth-left">
-                    <div className="auth-logo">
-                        <span className="logo-icon"></span>
-                        PharmaVoice AI
-                    </div>
-                    <div className="auth-left-text">
-                        <h1>Hello,<br/>welcome!</h1>
-                        <p>Clinical Audio Processing Platform.<br/>Empowering healthcare transcription.</p>
-                        <button className="view-more-btn">View more</button>
-                    </div>
-                </div>
-                
-                <div className="auth-right">
-                    <form className="auth-form" onSubmit={handleSubmit}>
-                        <div className="input-group">
-                            <label>Email address</label>
-                            <input 
-                                type="email" 
-                                placeholder="name@mail.com" 
-                                value={email} 
-                                onChange={(e) => setEmail(e.target.value)} 
-                                required 
-                            />
-                        </div>
-                        <div className="input-group">
-                            <label>Password</label>
-                            <input 
-                                type="password" 
-                                placeholder="••••••••" 
-                                value={password} 
-                                onChange={(e) => setPassword(e.target.value)} 
-                                required 
-                            />
-                        </div>
-                        
-                        <div className="auth-options">
-                            <label className="remember-me">
-                                <input type="checkbox" /> Remember me
-                            </label>
-                            <a href="#" className="forgot-password">Forgot password?</a>
-                        </div>
-                        
-                        <button type="submit" className="login-btn" disabled={isLoading}>
-                            Login
-                        </button>
-                    </form>
-                    
-                    <div className="auth-switch">
-                        <p>Not a member yet?</p>
-                        <button className="signup-btn" onClick={() => navigate('/register')}>Sign up</button>
-                    </div>
-                </div>
-            </div>
+      // 3. Save & navigate
+      localStorage.setItem('token', bridgeData.token);
+      localStorage.setItem('user', JSON.stringify(bridgeData.user));
+      setSessionFromSupabase(bridgeData.token, bridgeData.user);
+      navigate('/');
+    } catch (err) {
+      setError(err.message || 'Đăng nhập thất bại');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="auth-root">
+      <div className="auth-bg-blob auth-bg-blob-1"/>
+      <div className="auth-bg-blob auth-bg-blob-2"/>
+
+      <div className="auth-card">
+        <div className="auth-brand">
+          <div className="auth-logo"><IconSparkles size={24}/></div>
+          <h1>PharmaVoice</h1>
+          <p>Trợ lý AI phân tích cuộc gọi telesale dược phẩm</p>
         </div>
-    );
-};
 
-export default Login;
+        <form onSubmit={onSubmit} className="auth-form">
+          <h2>Đăng nhập</h2>
+
+          <label>
+            <span>Email</span>
+            <input
+              type="email"
+              autoComplete="email"
+              placeholder="ban@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </label>
+
+          <label>
+            <span>Mật khẩu</span>
+            <div className="auth-pwd-wrap">
+              <input
+                type={showPwd ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                disabled={loading}
+              />
+              <button type="button" className="auth-pwd-toggle" onClick={() => setShowPwd(!showPwd)} tabIndex={-1}>
+                {showPwd ? 'Ẩn' : 'Hiện'}
+              </button>
+            </div>
+          </label>
+
+          {error && (
+            <div className="auth-error">
+              <IconAlert size={14}/> {error}
+            </div>
+          )}
+
+          <button type="submit" className="auth-submit" disabled={loading || !email || !password}>
+            {loading ? <><IconLoader size={16} className="spin"/> Đang xác thực...</> : 'Đăng nhập'}
+          </button>
+        </form>
+
+        <div className="auth-footer">
+          Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
+        </div>
+      </div>
+    </div>
+  );
+}

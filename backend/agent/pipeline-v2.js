@@ -40,6 +40,23 @@ async function safeRun(name, fn, onProgress) {
   }
 }
 
+// Retry wrapper for async post-processing — exponential backoff (300ms, 900ms, 2700ms).
+// Not all errors are retryable; we still log on final failure so operators can see it.
+async function withRetry(label, fn, { attempts = 3, baseDelayMs = 300 } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try { return await fn(); }
+    catch (e) {
+      lastErr = e;
+      const delay = baseDelayMs * Math.pow(3, i);
+      console.warn(`[pipeline-v2] ${label} attempt ${i + 1}/${attempts} failed: ${e.message} (retry in ${delay}ms)`);
+      if (i < attempts - 1) await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  console.error(`[pipeline-v2] ${label} GAVE UP after ${attempts} attempts:`, lastErr?.message);
+  throw lastErr;
+}
+
 /**
  * Build the "customer context block" that is injected into each skill prompt.
  * It contains:
@@ -121,7 +138,7 @@ async function analyzeCallV2(opts) {
   try {
     // Step 1: Diarize (Groq Whisper + Claude speaker labeling)
     onProgress("diarize", "start");
-    const diarized = await diarizeAudio({ filePath });
+    const diarized = await diarizeAudio({ filePath, originalName: metadata.filename, mimeType });
     const diarizedText = diarizedToText(diarized);
     onProgress("diarize", "done");
 
@@ -189,18 +206,22 @@ async function analyzeCallV2(opts) {
         const audioBuffer = fs.readFileSync(filePath);
         const ext = path.extname(metadata.filename || "audio.mp3") || ".mp3";
         const storagePath = `calls/${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+        console.log(`[pipeline-v2] uploading audio: ${storagePath} (${(audioBuffer.length/1024/1024).toFixed(2)}MB, ${mimeType})`);
         const { data: upData, error: upErr } = await supabase.storage
           .from("call-audio")
           .upload(storagePath, audioBuffer, { contentType: mimeType, upsert: false });
         if (upErr) {
-          console.warn("[pipeline-v2] audio storage upload failed:", upErr.message);
+          console.error("[pipeline-v2] audio storage upload FAILED:", JSON.stringify(upErr));
+          onProgress("audio-store", "error", { message: upErr.message });
         } else {
           const { data: urlData } = supabase.storage.from("call-audio").getPublicUrl(storagePath);
           audioUrl = urlData?.publicUrl || null;
           console.log("[pipeline-v2] audio stored:", audioUrl);
+          onProgress("audio-store", "done", { url: audioUrl });
         }
       } catch (e) {
-        console.warn("[pipeline-v2] audio storage error:", e.message);
+        console.error("[pipeline-v2] audio storage EXCEPTION:", e.message, e.stack);
+        onProgress("audio-store", "error", { message: e.message });
       }
 
       const { data: callRow, error: callErr } = await supabase.from("calls").insert([{
@@ -236,12 +257,12 @@ async function analyzeCallV2(opts) {
         savedCallId = callRow.id;
         analysis.saved_call_id = savedCallId;
 
-        // Embed chunks (fire-and-forget to not block response)
+        // Embed chunks (fire-and-forget, retried on transient errors)
         (async () => {
           try {
             const chunks = chunkDiarized(diarized);
             if (!chunks.length) return;
-            const embeds = await embedBatch(chunks.map(c => c.chunk_text));
+            const embeds = await withRetry('embed-batch', () => embedBatch(chunks.map(c => c.chunk_text)));
             const rows = chunks.map((c, i) => ({
               call_id: savedCallId,
               customer_id: resolvedCustomerId,
@@ -251,21 +272,28 @@ async function analyzeCallV2(opts) {
               end_sec: c.end_sec,
               embedding: embeds[i]
             })).filter(r => r.embedding);
-            if (rows.length) await supabase.from("call_chunks").insert(rows);
+            if (rows.length) {
+              await withRetry('chunks-insert', async () => {
+                const { error } = await supabase.from("call_chunks").insert(rows);
+                if (error) throw new Error(error.message);
+              });
+            }
             console.log(`[pipeline-v2] embedded ${rows.length} chunks for call ${savedCallId}`);
-          } catch (e) { console.error("[pipeline-v2] embed step failed:", e.message); }
+          } catch (e) { console.error("[pipeline-v2] embed step gave up:", e.message); }
         })();
 
-        // Memory facts (fire-and-forget, only if we have a customer)
+        // Memory facts (fire-and-forget with retry, only if we have a customer)
         if (resolvedCustomerId) {
           (async () => {
             try {
-              const existing = await buildCustomerContext({ supabase, customerId: resolvedCustomerId });
-              const { facts } = await extractFacts({ diarizedText, existingContext: existing });
-              const res = await applyFacts({ supabase, customerId: resolvedCustomerId, callId: savedCallId, facts });
+              const res = await withRetry('memory-facts', async () => {
+                const existing = await buildCustomerContext({ supabase, customerId: resolvedCustomerId });
+                const { facts } = await extractFacts({ diarizedText, existingContext: existing });
+                return applyFacts({ supabase, customerId: resolvedCustomerId, callId: savedCallId, facts });
+              });
               console.log(`[pipeline-v2] memory: +${res.inserted} / ~${res.updated} / superseded ${res.superseded}`);
               if (res.conflicts.length) console.log(`[pipeline-v2] CONFLICTS:`, res.conflicts);
-            } catch (e) { console.error("[pipeline-v2] memory step failed:", e.message); }
+            } catch (e) { console.error("[pipeline-v2] memory step gave up:", e.message); }
           })();
         }
 

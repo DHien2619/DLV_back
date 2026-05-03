@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CanvasView } from './CallCanvas';
+import { IconArrowLeft, IconArrowRight, IconChat, IconCheck, IconLoader, IconTarget, IconWarning } from './icons';
 import './CallDetail.css';
 import './CallWorkspace.css'; // reuse cv-* styles
 
@@ -49,7 +50,7 @@ function _deprecated_MiniChat({ customerId, customerName }) {
   return (
     <div className="ws-chat" style={{ flex: 1, minHeight: 0 }}>
       <div className="ws-chat-head">
-        <b>💬 Hỏi Agent</b>
+        <b><IconChat size={14}/> Hỏi Agent</b>
         <small>Về KH {customerName}</small>
       </div>
       <div className="ws-chat-body" ref={bodyRef}>
@@ -82,7 +83,7 @@ function _deprecated_MiniChat({ customerId, customerName }) {
                 )}
                 {m.actions?.length > 0 && (
                   <div className="ws-cite-actions">
-                    {m.actions.map((a, j) => <div key={j}>🎯 {a}</div>)}
+                    {m.actions.map((a, j) => <div key={j}><IconTarget size={16}/> {a}</div>)}
                   </div>
                 )}
               </>
@@ -93,7 +94,7 @@ function _deprecated_MiniChat({ customerId, customerName }) {
       </div>
       <form className="ws-chat-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Hỏi Agent..." disabled={sending} />
-        <button type="submit" disabled={sending || !input.trim()}>{sending ? '⏳' : '↑'}</button>
+        <button type="submit" disabled={sending || !input.trim()}>{sending ? '...' : '→'}</button>
       </form>
     </div>
   );
@@ -119,7 +120,7 @@ export default function CallDetail() {
       .catch(e => { setError(e.message); setLoading(false); });
   }, [id]);
 
-  // Reshape DB row → analysis object for CanvasView
+  // Reshape DB row <IconArrowRight size={14}/> analysis object for CanvasView
   const analysis = useMemo(() => {
     if (!data?.call) return null;
     const c = data.call;
@@ -141,9 +142,9 @@ export default function CallDetail() {
   if (error || !data?.call) {
     return (
       <div className="cd-error">
-        <h2>⚠️ Không tìm thấy cuộc gọi</h2>
+        <h2><IconWarning size={14}/> Không tìm thấy cuộc gọi</h2>
         <p>{error || 'Call ID không hợp lệ hoặc đã bị xoá.'}</p>
-        <Link to="/history" className="cd-btn">← Về Lịch sử phân tích</Link>
+        <Link to="/history" className="cd-btn"><IconArrowLeft size={14}/> Về Lịch sử phân tích</Link>
       </div>
     );
   }

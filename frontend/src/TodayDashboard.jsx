@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { IconArrowRight, IconCheck, IconHelp, IconMoney, IconPhone2, IconTarget, IconWarning } from './icons';
 import './TodayDashboard.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -42,7 +43,7 @@ export default function TodayDashboard({ onUploadClick }) {
         <div>
           <h1>{greeting()}, {user?.name?.split(' ').slice(-1)[0] || 'bạn'} 👋</h1>
           <p>Hôm nay có <b>{today_calls.length}</b> cuộc gọi.
-            {week_stats.red_count > 0 && <span className="td-warn"> ⚠️ {week_stats.red_count} compliance RED tuần này.</span>}
+            {week_stats.red_count > 0 && <span className="td-warn"> <IconWarning size={14}/> {week_stats.red_count} compliance RED tuần này.</span>}
           </p>
         </div>
         <div className="td-greeting-stats">
@@ -69,7 +70,7 @@ export default function TodayDashboard({ onUploadClick }) {
         {/* LEFT: today's calls */}
         <section className="td-card">
           <div className="td-card-head">
-            <h2>📞 Cuộc gọi hôm nay</h2>
+            <h2><IconPhone2 size={16}/> Cuộc gọi hôm nay</h2>
             <button className="td-upload-btn" onClick={onUploadClick}>
               + Upload mới
             </button>
@@ -89,7 +90,7 @@ export default function TodayDashboard({ onUploadClick }) {
                   <div className="td-call-time">{fmtTime(c.created_at)}</div>
                   <div className="td-call-body">
                     <div className="td-call-head">
-                      <b>{c.customer?.name || '❓ KH chưa xác định'}</b>
+                      <b>{c.customer?.name || '? KH chưa xác định'}</b>
                       {c.customer?.phone && <small>{c.customer.phone}</small>}
                     </div>
                     {c.summary && <p className="td-call-summary">{c.summary}</p>}
@@ -118,12 +119,12 @@ export default function TodayDashboard({ onUploadClick }) {
         {/* MIDDLE: compliance alerts */}
         <section className="td-card">
           <div className="td-card-head">
-            <h2>⚠️ Cảnh báo tuân thủ</h2>
+            <h2><IconWarning size={14}/> Cảnh báo tuân thủ</h2>
             <span className="td-badge-count">{compliance_alerts.length}</span>
           </div>
           {compliance_alerts.length === 0 ? (
             <div className="td-empty td-empty-small">
-              <div className="td-empty-icon">✅</div>
+              <div className="td-empty-icon"><IconCheck size={14}/></div>
               <p>Không có cảnh báo chưa review.</p>
             </div>
           ) : (
@@ -146,12 +147,12 @@ export default function TodayDashboard({ onUploadClick }) {
         {/* RIGHT: hot opportunities */}
         <section className="td-card">
           <div className="td-card-head">
-            <h2>💰 Deals nóng</h2>
+            <h2><IconMoney size={16}/> Deals nóng</h2>
             <span className="td-badge-count">{hot_opportunities.length}</span>
           </div>
           {hot_opportunities.length === 0 ? (
             <div className="td-empty td-empty-small">
-              <div className="td-empty-icon">🎯</div>
+              <div className="td-empty-icon"><IconTarget size={16}/></div>
               <p>Chưa có opportunity đang hot.</p>
             </div>
           ) : (
@@ -167,7 +168,7 @@ export default function TodayDashboard({ onUploadClick }) {
                     <span>{o.stage}</span>
                     <span>{fmtVND(o.estimated_value_vnd)}</span>
                   </div>
-                  {o.next_action && <p className="td-opp-action">→ {o.next_action}</p>}
+                  {o.next_action && <p className="td-opp-action"><IconArrowRight size={14}/> {o.next_action}</p>}
                 </div>
               ))}
             </div>

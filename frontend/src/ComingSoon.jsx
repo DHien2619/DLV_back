@@ -1,15 +1,16 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { IconChartLine, IconCompliance, IconCustomers, IconHistory, IconMemory, IconMoney, IconWarning } from './icons';
 
 const FEATURES = {
-  '/skills/quality':   { icon: '📊', title: 'Quality Assessor',    desc: 'Pharma rubric 9 tiêu chí với evidence-backed scoring.', status: 'Đã có trong pipeline. Trang dashboard riêng đang build.' },
+  '/skills/quality':   { icon: '', title: 'Quality Assessor',    desc: 'Pharma rubric 9 tiêu chí với evidence-backed scoring.', status: 'Đã có trong pipeline. Trang dashboard riêng đang build.' },
   '/skills/opportunity': { icon: '💰', title: 'Opportunity Scout',   desc: 'Sales signals, objections, estimated value, NBA.',    status: 'Đã có trong pipeline. Trang dashboard riêng đang build.' },
   '/skills/compliance':  { icon: '⚠️', title: 'Compliance Guardian', desc: 'Phát hiện adverse event, off-label, guarantee cure.',  status: 'Đã có trong pipeline. Trang dashboard riêng đang build.' },
-  '/skills/memory':      { icon: '🧠', title: 'Memory Agent',        desc: 'Fact store + RAG + conflict detection.',               status: 'Đã chạy trong Customer 360. Admin view đang build.' },
-  '/dashboard-v2':       { icon: '📈', title: 'Dashboard tổng',      desc: 'Team leaderboard, trends, compliance queue.',          status: 'Sẽ build trong Sprint 4.' },
+  '/skills/memory':      { icon: '', title: 'Memory Agent',        desc: 'Fact store + RAG + conflict detection.',               status: 'Đã chạy trong Customer 360. Admin view đang build.' },
+  '/dashboard-v2':       { icon: '', title: 'Dashboard tổng',      desc: 'Team leaderboard, trends, compliance queue.',          status: 'Sẽ build trong Sprint 4.' },
   '/coach':              { icon: '🎓', title: 'Coach Agent',         desc: 'Weekly feedback actionable cho từng rep.',             status: 'Sẽ build trong Sprint 4.' },
-  '/compliance-queue':   { icon: '🛡️', title: 'Compliance Queue',    desc: 'Hàng đợi events RED/ORANGE cho compliance officer.',   status: 'Sẽ build trong Sprint 4.' },
-  '/my/calls':           { icon: '📂', title: 'Cuộc gọi của tôi',    desc: 'Lịch sử call cá nhân + scorecard rep.',                status: 'Sẽ build trong Sprint 4.' },
+  '/compliance-queue':   { icon: '', title: 'Compliance Queue',    desc: 'Hàng đợi events RED/ORANGE cho compliance officer.',   status: 'Sẽ build trong Sprint 4.' },
+  '/my/calls':           { icon: '', title: 'Cuộc gọi của tôi',    desc: 'Lịch sử call cá nhân + scorecard rep.',                status: 'Sẽ build trong Sprint 4.' },
   '/my/drafts':          { icon: '📝', title: 'Ghi chú',             desc: 'Notes / reminders / follow-up.',                       status: 'Sẽ build trong Sprint 4.' }
 };
 
@@ -51,7 +52,7 @@ export default function ComingSoon() {
           background: 'white', color: '#475569',
           border: '1px solid #e2e8f0', textDecoration: 'none',
           fontWeight: 600, fontSize: 13
-        }}>👥 Khách hàng</Link>
+        }}><IconCustomers size={16}/> Khách hàng</Link>
       </div>
     </div>
   );

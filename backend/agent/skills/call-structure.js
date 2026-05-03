@@ -47,7 +47,9 @@ Phan tich cau truc cuoc goi theo schema.`
     systemInstruction: SYSTEM,
     parts,
     schema: callStructureSchema,
-    temperature: 0.3
+    temperature: 0.3,
+    tier: 'fast', // Phase segmentation + summary — Haiku
+    maxOutputTokens: 3000
   });
 }
 
