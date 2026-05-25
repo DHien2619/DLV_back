@@ -131,32 +131,53 @@ async function generateStructured({
     }
   };
 
-  const body = {
-    model: modelName || pickModel(tier),
-    messages: buildMessages(systemInstruction, userText),
-    tools: [tool],
-    tool_choice: { type: "function", function: { name: "emit_result" } },
-    temperature,
-    max_tokens: maxOutputTokens
-  };
+  // Goi voi co che chong "JSON bi cat cut": neu output cham tran token
+  // (finish_reason="length") va parse loi -> thu lai 1 lan voi max_tokens gap doi.
+  let maxTok = maxOutputTokens;
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const body = {
+      model: modelName || pickModel(tier),
+      messages: buildMessages(systemInstruction, userText),
+      tools: [tool],
+      tool_choice: { type: "function", function: { name: "emit_result" } },
+      temperature,
+      max_tokens: maxTok
+    };
 
-  const data = await callOpenRouter(body);
-  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-  if (!toolCall) {
-    throw new Error("[openrouter-client] No tool_call in response: " + JSON.stringify(data).slice(0, 300));
-  }
+    const data = await callOpenRouter(body);
+    const choice = data.choices?.[0];
+    const toolCall = choice?.message?.tool_calls?.[0];
 
-  // Log cost for observability (helps tune tier choices)
-  if (data.usage?.cost) {
-    const cached = data.usage.prompt_tokens_details?.cached_tokens || 0;
-    console.log(`[or-cost] $${data.usage.cost.toFixed(5)} · ${data.usage.prompt_tokens}in (${cached} cached) / ${data.usage.completion_tokens}out · ${body.model}`);
-  }
+    // Log cost for observability (helps tune tier choices)
+    if (data.usage?.cost) {
+      const cached = data.usage.prompt_tokens_details?.cached_tokens || 0;
+      console.log(`[or-cost] $${data.usage.cost.toFixed(5)} · ${data.usage.prompt_tokens}in (${cached} cached) / ${data.usage.completion_tokens}out · ${body.model}`);
+    }
 
-  try {
-    return JSON.parse(toolCall.function.arguments);
-  } catch (e) {
-    throw new Error("[openrouter-client] Tool args not valid JSON: " + toolCall.function.arguments?.slice(0, 200));
+    if (!toolCall) {
+      // Khong co tool_call -> retry khong giup, bao loi ngay
+      throw new Error("[openrouter-client] No tool_call in response: " + JSON.stringify(data).slice(0, 300));
+    }
+
+    const truncated = choice?.finish_reason === "length";
+    try {
+      return JSON.parse(toolCall.function.arguments);
+    } catch (e) {
+      lastErr = new Error(
+        `[openrouter-client] Tool args not valid JSON (finish_reason=${choice?.finish_reason}): ` +
+        String(toolCall.function.arguments).slice(0, 200)
+      );
+      // Chi retry khi xac dinh bi cat do het token (truncation) va con luot thu
+      if (truncated && attempt === 0) {
+        maxTok = Math.min(maxTok * 2, 16000);
+        console.warn(`[openrouter-client] JSON bi cat (finish_reason=length). Retry voi max_tokens=${maxTok}.`);
+        continue;
+      }
+      break; // JSON loi cu phap that su (khong phai do cat) -> retry vo ich
+    }
   }
+  throw lastErr;
 }
 
 /**

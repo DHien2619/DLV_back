@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CanvasView } from './CallCanvas';
 import { IconArrowLeft, IconArrowRight, IconChat, IconCheck, IconLoader, IconTarget, IconWarning } from './icons';
@@ -100,6 +100,111 @@ function _deprecated_MiniChat({ customerId, customerName }) {
   );
 }
 
+// Assign / link this call to a customer. Backend relinks chunks/opps/compliance
+// and backfills memory. Search existing KH or quick-create one inline.
+function AssignCustomer({ callId, filename, onAssigned }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  // Telesale recordings are named by phone (e.g. 0913688870_27Feb…) — prefill it.
+  const phoneHint = useMemo(() => {
+    const m = String(filename || '').match(/(0\d{8,10})/);
+    return m ? m[1] : '';
+  }, [filename]);
+
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) { setResults([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v2/customers?q=${encodeURIComponent(term)}&limit=8`);
+        if (res.ok) setResults(await res.json());
+      } catch { /* ignore transient search errors */ }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const toggle = () => setOpen(o => {
+    const next = !o;
+    if (next && !q && phoneHint) setQ(phoneHint);
+    return next;
+  });
+
+  const doAssign = async (customerId) => {
+    const res = await fetch(`${API_URL}/api/v2/calls2/${callId}/assign-customer`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_id: customerId })
+    });
+    if (!res.ok) throw new Error('assign failed');
+  };
+
+  const assign = async (customerId) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await doAssign(customerId);
+      setOpen(false);
+      onAssigned?.();
+    } catch { alert('Gán KH thất bại. Thử lại.'); }
+    finally { setBusy(false); }
+  };
+
+  const createAndAssign = async () => {
+    const name = q.trim();
+    if (!name || busy) return;
+    setBusy(true);
+    try {
+      const body = { name, source: 'hotline' };
+      if (phoneHint) body.phone = phoneHint;
+      const res = await fetch(`${API_URL}/api/v2/customers`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('create failed');
+      const c = await res.json();
+      await doAssign(c.id);
+      setOpen(false);
+      onAssigned?.();
+    } catch { alert('Tạo / gán KH thất bại. Thử lại.'); }
+    finally { setBusy(false); }
+  };
+
+  const term = q.trim();
+  return (
+    <div className="cd-assign">
+      <button className="cd-btn cd-btn-primary" onClick={toggle}>+ Gán KH</button>
+      {open && (
+        <div className="cd-assign-pop">
+          <input
+            autoFocus
+            placeholder="Tìm KH (tên / SĐT / mã)…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <div className="cd-assign-list">
+            {results.map(c => (
+              <div key={c.id} className="cd-assign-item" onClick={() => assign(c.id)}>
+                <b>{c.name}</b>
+                <span>{c.phone || '—'} · {c.code || '—'}</span>
+              </div>
+            ))}
+            {term.length >= 2 && !results.some(r => r.name === term) && (
+              <div className="cd-assign-item cd-assign-create" onClick={createAndAssign}>
+                {busy ? '… Đang xử lý' : `+ Tạo & gán KH mới: "${term}"`}
+              </div>
+            )}
+            {term.length < 2 && (
+              <div className="cd-assign-empty">Nhập tên / SĐT để tìm hoặc tạo KH.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CallDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -108,17 +213,19 @@ export default function CallDetail() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    setLoading(true);
+  const loadCall = useCallback((silent) => {
+    if (!silent) setLoading(true);
     fetch(`${API_URL}/api/v2/calls2/${id}`)
       .then(r => r.json())
       .then(d => {
         if (d.message && !d.call) { setError(d.message); }
-        else setData(d);
+        else { setData(d); setError(null); }
         setLoading(false);
       })
       .catch(e => { setError(e.message); setLoading(false); });
   }, [id]);
+
+  useEffect(() => { loadCall(); }, [loadCall]);
 
   // Reshape DB row <IconArrowRight size={14}/> analysis object for CanvasView
   const analysis = useMemo(() => {
@@ -168,7 +275,9 @@ export default function CallDetail() {
             </p>
           </div>
           <div className="cd-actions">
-            {customer && <Link to={`/customers/${customer.id}`} className="cd-btn">Xem KH</Link>}
+            {customer
+              ? <Link to={`/customers/${customer.id}`} className="cd-btn">Xem KH</Link>
+              : <AssignCustomer callId={call.id} filename={call.audio_filename} onAssigned={() => loadCall(true)} />}
             <Link to="/history" className="cd-btn">Lịch sử</Link>
           </div>
         </div>

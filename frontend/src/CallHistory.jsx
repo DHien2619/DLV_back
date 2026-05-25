@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import FilterBar, { filtersToQuery } from './FilterBar';
 import { IconHistory, IconSearch, IconCompliance, IconHelp } from './icons';
 import './CallHistory.css';
@@ -13,6 +13,8 @@ const PAGE_SIZE = 50;
 
 export default function CallHistory() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const mineOnly = location.pathname === '/my/calls'; // "Cuộc gọi của tôi" → chỉ call của mình
   const [filter, setFilter] = useState({ preset: 'month' });
   const [compFilter, setCompFilter] = useState('any');
   const [search, setSearch] = useState('');
@@ -28,11 +30,12 @@ export default function CallHistory() {
     params.set('offset', offset);
     if (compFilter !== 'any') params.set('compliance', compFilter);
     if (search) params.set('search', search);
+    if (mineOnly) params.set('scope', 'mine');
     const res = await fetch(`${API_URL}/api/v2/calls/history?${params.toString()}`);
     const j = await res.json();
     setData(j);
     setLoading(false);
-  }, [filter, offset, compFilter, search]);
+  }, [filter, offset, compFilter, search, mineOnly]);
 
   useEffect(() => { load(); }, [load]);
   // reset offset when filter changes
@@ -47,7 +50,7 @@ export default function CallHistory() {
     <div className="hist-root">
       <div className="hist-header">
         <div>
-          <h1><IconHistory size={20}/> Lịch sử phân tích</h1>
+          <h1><IconHistory size={20}/> {mineOnly ? 'Cuộc gọi của tôi' : 'Lịch sử phân tích'}</h1>
           <p>{data.total} cuộc gọi {filter.customerName && <>của <b>{filter.customerName}</b></>}</p>
         </div>
         <form onSubmit={onSearch} className="hist-search">

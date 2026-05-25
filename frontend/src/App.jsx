@@ -4,6 +4,8 @@ import './theme.css';
 import './App.css';
 import './mobile.css';
 import { AuthProvider, ProtectedRoute } from './AuthContext';
+import { AnalysisProvider } from './AnalysisContext';
+import GlobalAnalysisIndicator from './GlobalAnalysisIndicator';
 import AppShell from './AppShell';
 import Login from './Login';
 import Register from './Register';
@@ -67,6 +69,7 @@ const App = () => (
   <ErrorBoundary>
     <AuthProvider>
       <Router>
+        <AnalysisProvider>
         <Routes>
           {/* Public auth routes */}
           <Route path="/login" element={<Login />} />
@@ -103,6 +106,8 @@ const App = () => (
           {/* 404 */}
           <Route path="*" element={<Shell><ComingSoon /></Shell>} />
         </Routes>
+        <GlobalAnalysisIndicator />
+        </AnalysisProvider>
       </Router>
     </AuthProvider>
   </ErrorBoundary>

@@ -4,6 +4,11 @@ const { opportunitySchema } = require("../schemas");
 
 const SYSTEM = `Ban la Sales Intelligence Analyst. Nhiem vu: doc cuoc goi va xuat co hoi ban hang voi gia tri va hanh dong tiep theo CU THE.
 
+CHONG BIA (RAT QUAN TRONG):
+- Moi buying_signal/objection PHAI co quote NGUYEN VAN tu transcript (he thong hau kiem; quote khong khop transcript se bi LOAI BO).
+- So luong, gia, ten san pham trong next_best_action va estimated_value_vnd PHAI KHOP cuoc goi. KHONG bia combo/gia khac (VD: KH dat 5 hop 950k thi KHONG duoc ghi "combo 3 hop 650k").
+- KHONG tu ket luan KH "da mua thanh cong" neu transcript chua xac nhan da giao/da thanh toan.
+
 TIEU CHI CHAM SCORE (0-100):
 - 90-100 (ready_to_buy): KH da dong y mua, chot so luong, hoi giao hang/thanh toan.
 - 75-89 (hot): KH cam ket manh ("chi thu lay 1 hop"), hoi gia nhieu lan, hoi giao hang.

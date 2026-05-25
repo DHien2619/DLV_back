@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import WaveSurfer from 'wavesurfer.js';
 import BatchUpload from './BatchUpload';
 import TodayDashboard from './TodayDashboard';
+import { useAnalysis } from './AnalysisContext';
 import { IconArrowLeft, IconArrowRight, IconChartLine, IconCheck, IconClock, IconClose, IconCompass, IconCustomer, IconCustomers, IconDollar, IconExternal, IconHandshake, IconHelp, IconLayers, IconLightbulb, IconLoader, IconMemory, IconMoney, IconPaperclip, IconPhone2, IconPill, IconSearch, IconStethoscope, IconStop, IconSwords, IconTarget, IconTranscript, IconWarning } from './icons';
 import './CallAnalyzer.css';
 
@@ -98,7 +99,9 @@ export default function CallAnalyzer() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState('');
-  const [customer, setCustomer] = useState(null);
+  // KH cho batch sống trong AnalysisContext → không reset khi đổi tab, đảm bảo
+  // file phân tích vẫn gán đúng KH dù bấm Phân tích sau khi quay lại.
+  const { batchCustomer: customer, setBatchCustomer: setCustomer } = useAnalysis();
   const [showMatches, setShowMatches] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -250,7 +253,7 @@ export default function CallAnalyzer() {
           <div className="ca-upload-head-v2">
             <div>
               <h2><IconPaperclip size={14}/> Upload & phân tích</h2>
-              <p>Kéo thả nhiều file cùng lúc — xử lý song song 3 file. Chọn KH bên dưới để bật RAG context.</p>
+              <p>Kéo thả nhiều file cùng lúc — xử lý song song 3 file. KH được gán khi mỗi file phân tích <b>xong</b> — bạn có thể đổi KH trong lúc đang chạy, miễn đổi kịp trước khi file đó xong.</p>
             </div>
           </div>
 
@@ -259,7 +262,7 @@ export default function CallAnalyzer() {
             <CustomerPicker value={customer} onChange={setCustomer} />
           </div>
 
-          <BatchUpload customerId={customer?.id} />
+          <BatchUpload />
 
           {error && <div className="ca-error"><IconWarning size={14}/> {error}</div>}
         </section>

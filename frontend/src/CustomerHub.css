@@ -68,7 +68,7 @@
 }
 .ch-row {
   display: grid;
-  grid-template-columns: 2fr 1.3fr 1fr 1fr 1.2fr 0.8fr 1.5fr;
+  grid-template-columns: 2fr 1.3fr 1fr 1fr 1.2fr 0.8fr 1.5fr 72px;
   gap: 12px;
   padding: 12px 18px;
   align-items: center;
@@ -89,6 +89,69 @@
 .ch-risk.high { color: var(--danger); font-weight: 700; }
 .ch-risk.low { color: var(--success); }
 .ch-small { color: var(--ink-400); font-size: 11px; }
+
+/* Edit / delete icons at end of each row */
+.ch-row-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.ch-edit, .ch-del {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--radius-sm);
+  color: var(--ink-400); cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.ch-edit:hover { background: var(--paper); color: var(--primary); box-shadow: var(--shadow-xs); }
+.ch-del:hover { background: var(--paper); color: var(--danger); box-shadow: var(--shadow-xs); }
+.ch-edit:focus-visible, .ch-del:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.ch-del:focus-visible { outline-color: var(--danger); }
+
+/* Edit customer modal */
+.ch-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.ch-modal {
+  width: 100%; max-width: 420px;
+  background: var(--paper); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg, 0 20px 50px rgba(0, 0, 0, .25)); overflow: hidden;
+}
+.ch-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--ink-100);
+}
+.ch-modal-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.ch-modal-close {
+  border: 0; background: transparent; cursor: pointer; color: var(--ink-400);
+  display: inline-flex; padding: 4px; border-radius: var(--radius-sm);
+}
+.ch-modal-close:hover { background: var(--ink-50); color: var(--ink-700); }
+.ch-modal-form { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.ch-modal-form label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; font-weight: 600; color: var(--ink-500);
+}
+.ch-modal-form input, .ch-modal-form select {
+  padding: 9px 12px; border: 1px solid var(--ink-200); border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 13px; color: var(--ink-900);
+}
+.ch-modal-form input:focus, .ch-modal-form select:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--red-100);
+}
+.ch-modal-err {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--danger); font-weight: 600;
+}
+.ch-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.ch-modal-actions button {
+  padding: 9px 18px; border-radius: var(--radius-sm); font-family: inherit;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.ch-modal-cancel { background: var(--paper); border: 1px solid var(--ink-200); color: var(--ink-700); }
+.ch-modal-cancel:hover { background: var(--ink-50); }
+.ch-modal-actions button:disabled { opacity: .6; cursor: not-allowed; }
+.ch-del-confirm { background: var(--danger); border: 0; color: #fff; }
+.ch-del-confirm:hover { filter: brightness(1.06); }
+.ch-del-warn { margin: 0; font-size: 14px; color: var(--ink-900); }
+.ch-del-detail { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-500); }
 
 /* ---------- 360 detail ---------- */
 .ch-360-header {

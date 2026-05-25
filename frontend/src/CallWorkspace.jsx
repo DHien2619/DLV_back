@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import WaveSurfer from 'wavesurfer.js';
+import { useAnalysis } from './AnalysisContext';
 import AnalysisProgress from './AnalysisProgress';
 import { CanvasView, fmtTime } from './CallCanvas';
 import { IconAlert, IconAnalyze, IconArrowLeft, IconChat, IconCheck, IconClock, IconCustomer, IconLoader, IconPaperclip, IconPlus, IconSend, IconSparkles, IconTarget, IconWarning } from './icons';
@@ -240,91 +240,32 @@ function InlineChat({ customerId, callContext, onCitationClick }) {
 // MAIN WORKSPACE
 // ============================================================
 export default function CallWorkspace() {
-  const [customer, setCustomer] = useState(null);
-  const [recordingTime, setRecordingTime] = useState('');
-  const [file, setFile] = useState(null);
-  const [audioUrl, setAudioUrl] = useState(null);
+  // Analysis lifecycle lives in AnalysisContext (above the router) so it
+  // survives navigation to other tabs while a call is being analyzed.
+  const {
+    customer, setCustomer,
+    recordingTime, setRecordingTime,
+    file, audioUrl, handleFile,
+    analyzing, progressEvents, error, analysis,
+    activeTab, setActiveTab,
+    canAnalyze, startAnalysis, resetForNewCall,
+    markResultSeen,
+  } = useAnalysis();
 
-  const [analyzing, setAnalyzing] = useState(false);
-  const [progressEvents, setProgressEvents] = useState([]);
-  const [error, setError] = useState(null);
-  const [analysis, setAnalysis] = useState(null);
-
-  const [activeTab, setActiveTab] = useState('overview');
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
 
   const waveRef = useRef(null);
   const wavesurferRef = useRef(null);
-  const navigate = useNavigate();
 
-  const canAnalyze = customer && recordingTime && file && !analyzing;
   const setupComplete = analysis != null;
 
-  const handleFile = (f) => {
-    if (!f) return;
-    setFile(f);
-    setAudioUrl(URL.createObjectURL(f));
-    setError(null);
-  };
-
-  const startAnalysis = async () => {
-    if (!canAnalyze) return;
-    setAnalyzing(true);
-    setError(null);
-    setProgressEvents([]);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      if (user?.id) fd.append('userId', user.id);
-      fd.append('customerId', customer.id);
-      fd.append('notes', `recorded_at:${recordingTime}`);
-
-      // Streaming NDJSON response
-      const res = await fetch(`${API_URL}/api/v2/calls/analyze-stream`, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      if (!res.body) throw new Error('No response stream');
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let finalResult = null;
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // keep incomplete line
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const evt = JSON.parse(line);
-            setProgressEvents(prev => [...prev, evt]);
-            if (evt.step === 'complete' && evt.result) {
-              finalResult = evt.result;
-            } else if (evt.step === 'error') {
-              throw new Error(evt.message || 'Analysis failed');
-            }
-          } catch (e) {
-            // ignore malformed line
-            console.warn('bad ndjson line:', line, e.message);
-          }
-        }
-      }
-
-      if (finalResult) {
-        setAnalysis(finalResult);
-        setActiveTab('overview');
-      } else {
-        throw new Error('Không nhận được kết quả cuối từ server');
-      }
-    } catch (e) {
-      setError(e.message);
-    } finally { setAnalyzing(false); }
-  };
+  // Viewing the workspace acknowledges a finished/failed result → hide the
+  // floating global indicator.
+  useEffect(() => {
+    if (!analyzing && (analysis || error)) markResultSeen();
+  }, [analyzing, analysis, error, markResultSeen]);
 
   // Wavesurfer setup when audio + transcript tab
   useEffect(() => {
@@ -352,11 +293,6 @@ export default function CallWorkspace() {
   const jumpTo = (sec) => {
     setActiveTab('transcript');
     setTimeout(() => { wavesurferRef.current?.setTime(sec); wavesurferRef.current?.play(); }, 100);
-  };
-
-  const resetForNewCall = () => {
-    setCustomer(null); setRecordingTime(''); setFile(null); setAudioUrl(null);
-    setAnalysis(null); setActiveTab('overview'); setError(null);
   };
 
   return (

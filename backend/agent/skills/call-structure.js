@@ -49,7 +49,7 @@ Phan tich cau truc cuoc goi theo schema.`
     schema: callStructureSchema,
     temperature: 0.3,
     tier: 'fast', // Phase segmentation + summary — Haiku
-    maxOutputTokens: 3000
+    maxOutputTokens: 8000 // schema nặng nhất (phases + moments + sentiment_arc) — cần quota lớn để JSON không bị cắt cụt
   });
 }
 

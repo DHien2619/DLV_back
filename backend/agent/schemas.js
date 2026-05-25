@@ -35,6 +35,7 @@ const rubricScoreItem = {
   properties: {
     score: { type: SchemaType.NUMBER, description: "Diem theo thang toi da cua tieu chi" },
     max: { type: SchemaType.NUMBER },
+    applicable: { type: SchemaType.BOOLEAN, description: "Tieu chi co AP DUNG cho loai cuoc goi nay khong. False = khong ap dung (vd doi hoi trieu chung trong cuoc GIAO HANG) -> KHONG tinh vao tong diem." },
     reasoning: { type: SchemaType.STRING, description: "Ly do cham diem nay, ngan gon" },
     evidence: {
       type: SchemaType.ARRAY,
@@ -49,12 +50,17 @@ const rubricScoreItem = {
       }
     }
   },
-  required: ["score", "max", "reasoning", "evidence"]
+  required: ["score", "max", "applicable", "reasoning", "evidence"]
 };
 
 const rubricSchema = {
   type: SchemaType.OBJECT,
   properties: {
+    call_type: {
+      type: SchemaType.STRING,
+      enum: ["tu_van_moi", "chot_don", "giao_hang", "cskh_khieu_nai", "follow_up", "khac"],
+      description: "Loai cuoc goi — quyet dinh tieu chi nao ap dung (vd cuoc giao_hang/cskh khong cham tieu chi y khoa)"
+    },
     identity_verification: rubricScoreItem,        // 5
     medical_discovery: rubricScoreItem,            // 15
     indication_appropriateness: rubricScoreItem,   // 20
@@ -70,6 +76,7 @@ const rubricSchema = {
     top_improvements: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
   },
   required: [
+    "call_type",
     "identity_verification", "medical_discovery", "indication_appropriateness",
     "side_effects_disclosure", "dosage_clarity", "drug_interaction_check",
     "empathy_listening", "professional_close", "compliance_language",

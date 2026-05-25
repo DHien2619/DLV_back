@@ -1,5 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAnalysis } from './AnalysisContext';
 import { IconCheck, IconClipboard, IconClose, IconLoader, IconPaperclip, IconWarning } from './icons';
 import './BatchUpload.css';
 
@@ -11,7 +12,8 @@ const STATUS = {
   UPLOADING: 'uploading',
   ANALYZING: 'analyzing',
   DONE: 'done',
-  FAILED: 'failed'
+  FAILED: 'failed',
+  CANCELLED: 'cancelled'
 };
 
 const STATUS_LABEL = {
@@ -19,7 +21,8 @@ const STATUS_LABEL = {
   uploading: 'Đang upload',
   analyzing: 'Đang phân tích',
   done: 'Xong',
-  failed: 'Lỗi'
+  failed: 'Lỗi',
+  cancelled: 'Đã hủy'
 };
 
 const fmtBytes = (b) => b < 1024 * 1024 ? `${(b / 1024).toFixed(0)}KB` : `${(b / 1024 / 1024).toFixed(2)}MB`;
@@ -28,85 +31,33 @@ const fmtTime = (ms) => `${(ms / 1000).toFixed(1)}s`;
 /**
  * Props:
  *   customerId?: string — nếu truyền, mọi file sẽ gán cùng 1 KH
- *   onDone?: (results) => void
- *   defaultFiles?: File[]
+ *
+ * Queue state + processing live in AnalysisContext so they survive navigation.
  */
-export default function BatchUpload({ customerId, onDone, defaultFiles }) {
-  const [items, setItems] = useState(
-    (defaultFiles || []).map(f => ({ file: f, status: STATUS.QUEUED, progress: 0 }))
-  );
-  const [running, setRunning] = useState(false);
+export default function BatchUpload() {
+  // Queue + processing live in AnalysisContext (above the router) so the batch
+  // keeps running and results persist when the user switches tabs. The customer
+  // is bound LATE (when each file finishes), so it's read from context, not props.
+  const {
+    batchItems: items,
+    batchRunning: running,
+    addBatchFiles: addFiles,
+    removeBatchItem: removeItem,
+    clearBatch: clearAll,
+    processBatch,
+    cancelBatch,
+    markBatchSeen,
+  } = useAnalysis();
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
   const navigate = useNavigate();
 
-  const addFiles = useCallback((files) => {
-    const next = Array.from(files)
-      .filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|m4a|aac|ogg|flac|webm)$/i.test(f.name))
-      .map(f => ({ file: f, status: STATUS.QUEUED, progress: 0 }));
-    if (next.length) setItems(prev => [...prev, ...next]);
-  }, []);
+  // Viewing this panel acknowledges finished results → hide the global pill.
+  useEffect(() => {
+    if (!running && items.length) markBatchSeen();
+  }, [running, items.length, markBatchSeen]);
 
-  const removeItem = (idx) => setItems(prev => prev.filter((_, i) => i !== idx));
-  const clearAll = () => setItems([]);
-
-  // ---------- concurrency-limited processor ----------
-  const processQueue = async () => {
-    if (running) return;
-    setRunning(true);
-
-    const queue = [...items];
-    const updateItem = (file, patch) => {
-      setItems(prev => prev.map(it => it.file === file ? { ...it, ...patch } : it));
-    };
-
-    const worker = async () => {
-      while (true) {
-        const target = queue.find(it => it.status === STATUS.QUEUED);
-        if (!target) break;
-        target.status = STATUS.UPLOADING;
-        updateItem(target.file, { status: STATUS.UPLOADING });
-
-        const t0 = Date.now();
-        try {
-          const fd = new FormData();
-          fd.append('file', target.file);
-          const user = JSON.parse(localStorage.getItem('user') || '{}');
-          if (user?.id) fd.append('userId', user.id);
-          if (customerId) fd.append('customerId', customerId);
-
-          updateItem(target.file, { status: STATUS.ANALYZING });
-          const res = await fetch(`${API_URL}/api/v2/calls/analyze-v2`, { method: 'POST', body: fd });
-          const data = await res.json();
-          if (!res.ok || !data.success) throw new Error(data.message || 'Analyze failed');
-          target.status = STATUS.DONE;
-          updateItem(target.file, {
-            status: STATUS.DONE,
-            ms: Date.now() - t0,
-            result: {
-              saved_call_id: data.saved_call_id,
-              customer_id: data.customer_id,
-              quality: data.quality?.total_score,
-              grade: data.quality?.overall_grade,
-              opportunity: data.opportunity?.score,
-              stage: data.opportunity?.stage,
-              compliance: data.compliance?.overall_status,
-              compliance_events: data.compliance?.events?.length || 0,
-              match_candidates: data.match_candidates?.candidates?.length || 0
-            }
-          });
-        } catch (e) {
-          target.status = STATUS.FAILED;
-          updateItem(target.file, { status: STATUS.FAILED, error: e.message, ms: Date.now() - t0 });
-        }
-      }
-    };
-
-    const workers = Array.from({ length: Math.min(MAX_CONCURRENT, queue.length) }, () => worker());
-    await Promise.all(workers);
-    setRunning(false);
-    onDone?.(items);
-  };
+  const startQueue = () => processBatch();
 
   const onDrop = (e) => {
     e.preventDefault();
@@ -118,6 +69,7 @@ export default function BatchUpload({ customerId, onDone, defaultFiles }) {
     total: items.length,
     done: items.filter(i => i.status === STATUS.DONE).length,
     failed: items.filter(i => i.status === STATUS.FAILED).length,
+    cancelled: items.filter(i => i.status === STATUS.CANCELLED).length,
     processing: items.filter(i => i.status === STATUS.UPLOADING || i.status === STATUS.ANALYZING).length,
     queued: items.filter(i => i.status === STATUS.QUEUED).length
   };
@@ -156,14 +108,20 @@ export default function BatchUpload({ customerId, onDone, defaultFiles }) {
               {counts.queued > 0 && <span className="bu-c-queue"><IconClipboard size={16}/> {counts.queued} chờ</span>}
               {counts.done > 0 && <span className="bu-c-done"><IconCheck size={14}/> {counts.done} xong</span>}
               {counts.failed > 0 && <span className="bu-c-fail"><IconWarning size={14}/> {counts.failed} lỗi</span>}
+              {counts.cancelled > 0 && <span className="bu-c-cancel"><IconClose size={14}/> {counts.cancelled} đã hủy</span>}
             </div>
             <div className="bu-actions">
               <button className="btn btn-ghost" onClick={clearAll} disabled={running}>
                 Xoá tất cả
               </button>
+              {running && (
+                <button className="btn bu-btn-cancel" onClick={cancelBatch} title="Dừng phân tích các file chưa xong">
+                  <IconClose size={14}/> Hủy
+                </button>
+              )}
               <button
                 className="btn btn-primary"
-                onClick={processQueue}
+                onClick={startQueue}
                 disabled={running || counts.queued === 0}
               >
                 {running ? `... Đang xử lý ${counts.processing}/${counts.total}` : `🚀 Phân tích ${counts.queued} file`}
@@ -186,6 +144,11 @@ export default function BatchUpload({ customerId, onDone, defaultFiles }) {
                 <span className="bu-file">
                   <span className="bu-file-ico">🎙️</span>
                   <span className="bu-file-name" title={it.file.name}>{it.file.name}</span>
+                  {it.result?.customer_name && (
+                    <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
+                      → {it.result.customer_name}
+                    </span>
+                  )}
                 </span>
                 <span className="bu-size">{fmtBytes(it.file.size)}</span>
                 <span className={`bu-st-badge bu-st-${it.status}`}>
@@ -226,7 +189,7 @@ export default function BatchUpload({ customerId, onDone, defaultFiles }) {
                   {it.status === STATUS.FAILED && (
                     <button className="bu-mini-btn bu-mini-fail" title={it.error}>ⓘ</button>
                   )}
-                  {(it.status === STATUS.QUEUED || it.status === STATUS.FAILED) && (
+                  {(it.status === STATUS.QUEUED || it.status === STATUS.FAILED || it.status === STATUS.CANCELLED) && (
                     <button
                       className="bu-mini-btn"
                       onClick={() => removeItem(i)}

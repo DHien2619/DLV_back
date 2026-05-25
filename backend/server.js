@@ -54,7 +54,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const corsOptions = {
     origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 };
 app.use(cors(corsOptions));
@@ -1102,6 +1102,50 @@ app.post('/api/v2/customers', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+app.patch('/api/v2/customers/:id', requireAuth, async (req, res) => {
+    try {
+        const updates = {};
+        const allowed = ['name', 'phone', 'code', 'source', 'age', 'gender', 'address', 'tags'];
+        for (const k of allowed) { if (req.body[k] !== undefined) updates[k] = req.body[k]; }
+        if (Object.keys(updates).length === 0) return res.status(400).json({ message: 'No fields to update' });
+        if (updates.name !== undefined && !String(updates.name).trim()) {
+            return res.status(400).json({ message: 'name cannot be empty' });
+        }
+        updates.updated_at = new Date().toISOString();
+        const { data, error } = await supabase.from('customers')
+            .update(updates).eq('id', req.params.id).select().single();
+        if (error) throw error;
+        if (!data) return res.status(404).json({ message: 'Customer not found' });
+        res.json(data);
+    } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Delete a customer but PRESERVE the call audit trail. Calls / compliance / notes
+// are unlinked (customer_id -> null) so they survive as "unidentified"; the
+// customer-specific derived data (memory, opportunities, RAG chunks) is removed.
+// Unlinking BEFORE the customer delete guarantees calls are never cascade-deleted,
+// regardless of the live DB's FK rules.
+app.delete('/api/v2/customers/:id', requireAdmin, async (req, res) => {
+    try {
+        const id = req.params.id;
+        const unlinkAndPrune = await Promise.all([
+            supabase.from('calls').update({ customer_id: null, customer_identified: false }).eq('customer_id', id),
+            supabase.from('compliance_events').update({ customer_id: null }).eq('customer_id', id),
+            supabase.from('notes').update({ customer_id: null }).eq('customer_id', id),
+            supabase.from('call_chunks').delete().eq('customer_id', id),
+            supabase.from('opportunities').delete().eq('customer_id', id),
+            supabase.from('customer_memory').delete().eq('customer_id', id),
+        ]);
+        const failed = unlinkAndPrune.find(r => r.error);
+        if (failed?.error) throw failed.error;
+
+        const { data, error } = await supabase.from('customers').delete().eq('id', id).select();
+        if (error) throw error;
+        if (!data || data.length === 0) return res.status(404).json({ message: 'Customer not found' });
+        res.json({ success: true, deleted: id });
+    } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 app.get('/api/v2/customers/:id', requireAuth, async (req, res) => {
     try {
         const [{ data: customer }, { data: calls }, { data: memory }, { data: opps }] = await Promise.all([
@@ -1353,6 +1397,11 @@ app.get('/api/v2/calls/history', requireAuth, async (req, res) => {
     try {
         const { from, to } = getDateRange(req.query);
         const filters = { from, to, customerId: req.query.customerId, repId: req.query.repId };
+        // Phân quyền dữ liệu: chỉ admin / có 'view_all_calls' mới xem call người khác.
+        // Staff thường, hoặc route "Cuộc gọi của tôi" (scope=mine) → chỉ thấy call của chính mình.
+        const _perms = await loadUserPerms(req.user.userId);
+        const canViewAll = req.user.role === 'admin' || _perms?.role === 'admin' || !!_perms?.permissions?.view_all_calls;
+        if (!canViewAll || req.query.scope === 'mine') filters.repId = req.user.userId;
         const limit = Math.min(parseInt(req.query.limit) || 50, 200);
         const offset = parseInt(req.query.offset) || 0;
         const compliance = req.query.compliance; // clean|yellow|orange|red|any
@@ -2123,9 +2172,9 @@ app.delete('/api/v2/calls/:id', requirePermission('delete_calls'), async (req, r
 app.get('/api/v2/notes', requireAuth, async (req, res) => {
     try {
         const { status, type, customerId, priority, due, limit = 100 } = req.query;
-        const user = JSON.parse(req.headers['x-user'] || '{}');
         let q = supabase.from('notes')
             .select('*')
+            .eq('user_id', req.user.userId)
             .order('created_at', { ascending: false })
             .limit(Math.min(parseInt(limit) || 100, 500));
         if (status && status !== 'all') q = q.eq('status', status);
@@ -2168,7 +2217,7 @@ app.post('/api/v2/notes', requireAuth, async (req, res) => {
             customer_id: customer_id || null,
             call_id: call_id || null,
             tags: tags || [],
-            user_id: req.body.userId || 1,
+            user_id: req.user.userId,
             status: 'open'
         }]).select().single();
         if (error) throw error;
@@ -2183,7 +2232,7 @@ app.put('/api/v2/notes/:id', requireAuth, async (req, res) => {
         for (const k of allowed) { if (req.body[k] !== undefined) updates[k] = req.body[k]; }
         if (updates.status === 'done') updates.completed_at = new Date().toISOString();
         if (updates.status === 'open') updates.completed_at = null;
-        const { data, error } = await supabase.from('notes').update(updates).eq('id', req.params.id).select().single();
+        const { data, error } = await supabase.from('notes').update(updates).eq('id', req.params.id).eq('user_id', req.user.userId).select().single();
         if (error) throw error;
         res.json(data);
     } catch (e) { res.status(500).json({ message: e.message }); }
@@ -2191,7 +2240,7 @@ app.put('/api/v2/notes/:id', requireAuth, async (req, res) => {
 
 app.delete('/api/v2/notes/:id', requireAuth, async (req, res) => {
     try {
-        const { error } = await supabase.from('notes').delete().eq('id', req.params.id);
+        const { error } = await supabase.from('notes').delete().eq('id', req.params.id).eq('user_id', req.user.userId);
         if (error) throw error;
         res.json({ success: true });
     } catch (e) { res.status(500).json({ message: e.message }); }
@@ -2200,13 +2249,13 @@ app.delete('/api/v2/notes/:id', requireAuth, async (req, res) => {
 // Quick toggle done/open
 app.post('/api/v2/notes/:id/toggle', requireAuth, async (req, res) => {
     try {
-        const { data: note } = await supabase.from('notes').select('status').eq('id', req.params.id).single();
+        const { data: note } = await supabase.from('notes').select('status').eq('id', req.params.id).eq('user_id', req.user.userId).maybeSingle();
         if (!note) return res.status(404).json({ message: 'not found' });
         const newStatus = note.status === 'done' ? 'open' : 'done';
         const { data, error } = await supabase.from('notes').update({
             status: newStatus,
             completed_at: newStatus === 'done' ? new Date().toISOString() : null
-        }).eq('id', req.params.id).select().single();
+        }).eq('id', req.params.id).eq('user_id', req.user.userId).select().single();
         if (error) throw error;
         res.json(data);
     } catch (e) { res.status(500).json({ message: e.message }); }

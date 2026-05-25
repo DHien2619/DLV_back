@@ -5,6 +5,13 @@ const { rubricSchema } = require("../schemas");
 const SYSTEM = `Ban la chuyen gia QA (Quality Assurance) cho doi ngu tu van duoc pham/telesale y te.
 Nhiem vu: cham diem cuoc goi theo RUBRIC 9 TIEU CHI duoi day, MOI TIEU CHI BAT BUOC kem evidence (timestamp + quote nguyen van tu transcript).
 
+BUOC 1 — XAC DINH LOAI CUOC GOI (call_type) TRUOC KHI CHAM:
+- tu_van_moi: tu van san pham/suc khoe -> AP DUNG CA 9 tieu chi (applicable=true het).
+- chot_don / giao_hang / cskh_khieu_nai / follow_up / khac: KHONG phai tu van y khoa.
+  -> 5 tieu chi Y KHOA (medical_discovery, indication_appropriateness, side_effects_disclosure, dosage_clarity, drug_interaction_check): danh applicable=false (KHONG cham oan vi cuoc nay khong nham tu van benh).
+  -> 4 tieu chi LUON AP DUNG moi cuoc (applicable=true): identity_verification, empathy_listening, professional_close, compliance_language.
+QUAN TRONG: moi tieu chi PHAI dien field "applicable" (true/false) dung theo call_type. Tieu chi applicable=false van dien score=0, he thong se BO QUA khi tinh tong (khong bi tru oan).
+
 RUBRIC (tong 100 diem):
 
 1. IDENTITY_VERIFICATION (max 5)
@@ -53,6 +60,34 @@ YEU CAU OUTPUT:
 
 Nghiem tuc va cong bang. Khong boi quet. Cham diem thuc te theo bang chung trong transcript.`;
 
+// Diem toi da co dinh tung tieu chi (khong tin max do model tu dien)
+const RUBRIC_MAX = {
+  identity_verification: 5, medical_discovery: 15, indication_appropriateness: 20,
+  side_effects_disclosure: 15, dosage_clarity: 10, drug_interaction_check: 10,
+  empathy_listening: 10, professional_close: 10, compliance_language: 5
+};
+
+// Tinh lai total_score theo THANG DONG: chi tinh tieu chi applicable !== false.
+// VD cuoc giao_hang bo qua 5 tieu chi y khoa -> cham tren thang ~30 diem thay vi 100,
+// tranh diem F oan cho cuoc khong phai tu van.
+function recomputeTotal(r) {
+  if (!r || typeof r !== "object") return r;
+  let got = 0, max = 0;
+  for (const k of Object.keys(RUBRIC_MAX)) {
+    const c = r[k];
+    if (!c || c.applicable === false) continue;
+    got += Number(c.score) || 0;
+    max += RUBRIC_MAX[k];
+  }
+  if (max > 0) {
+    const pct = Math.round((got / max) * 100);
+    r.total_score = pct;
+    r.overall_grade = pct >= 90 ? "A" : pct >= 75 ? "B" : pct >= 60 ? "C" : pct >= 40 ? "D" : "F";
+    r.scored_out_of = max; // minh bach: diem toi da thuc te sau khi bo tieu chi N/A
+  }
+  return r;
+}
+
 async function assessQuality({ diarizedText, callMetadata = {} }) {
   const parts = [
     {
@@ -66,7 +101,7 @@ Cham diem rubric theo schema.`
     }
   ];
 
-  return generateStructured({
+  const result = await generateStructured({
     systemInstruction: SYSTEM,
     parts,
     schema: rubricSchema,
@@ -74,6 +109,7 @@ Cham diem rubric theo schema.`
     tier: 'premium', // 9-criteria rubric reasoning needs Sonnet
     maxOutputTokens: 6000
   });
+  return recomputeTotal(result);
 }
 
 module.exports = { assessQuality };

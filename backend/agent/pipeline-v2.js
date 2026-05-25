@@ -166,14 +166,23 @@ async function analyzeCallV2(opts) {
     const contextBlock = ragContext ? `\n\n=== CONTEXT TU LICH SU KH ===\n${ragContext}\n=== HET CONTEXT ===\n` : "";
     const textWithContext = `${contextBlock}\n=== TRANSCRIPT CUOC GOI HIEN TAI ===\n${diarizedText}`;
 
-    const [quality, needs, opportunity, compliance, structure] = await Promise.all([
-      safeRun("quality", () => assessQuality({ diarizedText: textWithContext, callMetadata: metadata }), onProgress),
-      safeRun("needs", () => extractNeeds({ diarizedText: textWithContext }), onProgress),
-      safeRun("opportunity", () => scoutOpportunity({ diarizedText: textWithContext }), onProgress),
-      safeRun("compliance", () => checkCompliance({ diarizedText: textWithContext }), onProgress),
-      safeRun("structure", () => analyzeStructure({ diarizedText: textWithContext }), onProgress)
-    ]);
-    onProgress("skills", "done");
+    let quality, needs, opportunity, compliance, structure;
+    if ((process.env.SKILLS_OFF || "").trim() === "1") {
+      // Diarization-only test mode: skip 5 OpenRouter skills to save credit.
+      const skip = { ok: false, error: "skills disabled (SKILLS_OFF=1)", ms: 0 };
+      quality = needs = opportunity = compliance = structure = skip;
+      console.warn("[pipeline-v2] SKILLS_OFF=1 → bo qua 5 skill (chi phien am + tach giong, $0 OpenRouter)");
+      onProgress("skills", "skipped");
+    } else {
+      [quality, needs, opportunity, compliance, structure] = await Promise.all([
+        safeRun("quality", () => assessQuality({ diarizedText: textWithContext, callMetadata: metadata }), onProgress),
+        safeRun("needs", () => extractNeeds({ diarizedText: textWithContext }), onProgress),
+        safeRun("opportunity", () => scoutOpportunity({ diarizedText: textWithContext }), onProgress),
+        safeRun("compliance", () => checkCompliance({ diarizedText: textWithContext }), onProgress),
+        safeRun("structure", () => analyzeStructure({ diarizedText: textWithContext }), onProgress)
+      ]);
+      onProgress("skills", "done");
+    }
 
     const analysis = {
       analysis_version: ANALYSIS_VERSION,
@@ -193,6 +202,18 @@ async function analyzeCallV2(opts) {
         compliance_ms: compliance.ms, structure_ms: structure.ms
       }
     };
+
+    // Step 3b: Grounding check — loai bo item "bia" (evidence_quote khong co trong transcript)
+    try {
+      const { groundInsights } = require("./grounding");
+      const gr = groundInsights(analysis, diarizedText);
+      if (gr.needs_dropped || gr.opp_dropped) {
+        console.warn(`[pipeline-v2] grounding loai ${gr.needs_dropped} needs + ${gr.opp_dropped} opportunity item khong bam transcript: ${gr.details.join("; ")}`);
+        onProgress("grounding", "done", { dropped: gr.needs_dropped + gr.opp_dropped });
+      }
+    } catch (e) {
+      console.warn("[pipeline-v2] grounding check failed:", e.message);
+    }
 
     // Step 4: Persist to DB
     let savedCallId = null;

@@ -40,7 +40,10 @@
 .bu-c-queue { color: var(--ink-500); }
 .bu-c-done { color: var(--success); font-weight: 600; }
 .bu-c-fail { color: var(--danger); font-weight: 600; }
+.bu-c-cancel { color: var(--ink-500); font-weight: 600; }
 .bu-actions { display: flex; gap: 8px; }
+.bu-btn-cancel { background: var(--paper); color: var(--danger); border: 1px solid var(--danger); }
+.bu-btn-cancel:hover { background: var(--danger); color: #fff; }
 
 .bu-list {
   margin-top: 10px;
@@ -92,6 +95,8 @@
 }
 .bu-st-done { background: #dcfce7; color: #14532d; }
 .bu-st-failed { background: #fee2e2; color: #991b1b; }
+.bu-st-cancelled { background: var(--ink-100); color: var(--ink-500); }
+.bu-row.bu-status-cancelled { background: var(--ink-50); }
 .bu-spin {
   width: 10px; height: 10px; border: 2px solid transparent;
   border-top-color: currentColor; border-radius: 50%;
